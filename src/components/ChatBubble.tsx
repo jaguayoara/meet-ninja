@@ -50,15 +50,6 @@ export function ChatBubble() {
           <button
             type="button"
             role="tab"
-            aria-selected={tab === 'search'}
-            className={'chat-bubble-tab' + (tab === 'search' ? ' is-active' : '')}
-            onClick={() => setTab('search')}
-          >
-            🔍 {t('bubble.tabSearch')}
-          </button>
-          <button
-            type="button"
-            role="tab"
             aria-selected={tab === 'chat'}
             className={'chat-bubble-tab' + (tab === 'chat' ? ' is-active' : '')}
             onClick={() => setTab('chat')}
@@ -66,6 +57,18 @@ export function ChatBubble() {
             💬 {t('bubble.tabChat')}
             {session.chatMessages.length > 0 && (
               <span className="chat-bubble-tab-count">{session.chatMessages.length}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'search'}
+            className={'chat-bubble-tab' + (tab === 'search' ? ' is-active' : '')}
+            onClick={() => setTab('search')}
+          >
+            🔍 {t('bubble.tabSearch')}
+            {session.search.results.length > 0 && (
+              <span className="chat-bubble-tab-count">{session.search.results.length}</span>
             )}
           </button>
         </div>
@@ -80,7 +83,7 @@ export function ChatBubble() {
         </button>
       </div>
       <div className="chat-bubble-body">
-        {tab === 'search' ? <SearchPanel /> : <ChatPanel />}
+        {tab === 'chat' ? <ChatPanel /> : <SearchPanel />}
       </div>
     </div>
   );

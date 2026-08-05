@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Estado global con Zustand.
  *
  * Maneja multiples sesiones concurrentes. Cada sesion guarda:
@@ -70,7 +70,7 @@ export type Session = {
 
 const STORAGE_KEY = 'meetninja.sessions.v1';
 const LANG_KEY = 'meetninja.lang';
-const CURRENT_KEY = 'meetninja.currentSession.v1';
+const LEGACY_CURRENT_KEY = 'meetninja.currentSession.v1';
 const THEME_KEY = 'meetninja.theme';
 
 export type Theme = 'light' | 'dark';
@@ -184,18 +184,19 @@ function deserializeSession(o: Record<string, unknown>): Session {
   });
 }
 
-function loadFromStorage(): { sessions: Session[]; currentId: string | null } {
-  if (typeof localStorage === 'undefined') return { sessions: [], currentId: null };
+function loadFromStorage(): { sessions: Session[] } {
+  if (typeof localStorage === 'undefined') return { sessions: [] };
+  // Limpieza one-shot: borrar el currentSession viejo para que la app
+  // siempre arranque en el menu de sesiones, no en la ultima sesion abierta.
+  try { localStorage.removeItem(LEGACY_CURRENT_KEY); } catch { /* noop */ }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { sessions: [], currentId: null };
+    if (!raw) return { sessions: [] };
     const arr = JSON.parse(raw) as Record<string, unknown>[];
     const sessions = arr.map(deserializeSession);
-    const currentId =
-      (typeof localStorage !== 'undefined' ? localStorage.getItem(CURRENT_KEY) : null) || null;
-    return { sessions, currentId };
+    return { sessions };
   } catch {
-    return { sessions: [], currentId: null };
+    return { sessions: [] };
   }
 }
 
@@ -214,13 +215,11 @@ async function hydrateAudio(sessions: Session[]): Promise<Record<string, Blob>> 
   return out;
 }
 
-function saveToStorage(sessions: Session[], currentId: string | null) {
+function saveToStorage(sessions: Session[]) {
   if (typeof localStorage === 'undefined') return;
   try {
     const arr = sessions.map(serializeSession);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
-    if (currentId) localStorage.setItem(CURRENT_KEY, currentId);
-    else localStorage.removeItem(CURRENT_KEY);
   } catch {
     // localStorage lleno o no disponible, ignorar
   }
@@ -371,11 +370,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   sessions: initialMap,
   sessionOrder: initialOrder,
-  currentSessionId:
-    initial.currentId && initialMap[initial.currentId] ? initial.currentId : null,
+  // Importante: la app SIEMPRE arranca en el menu de sesiones, aunque
+  // haya sesiones persistidas. El usuario elige explicitamente cual abrir.
+  currentSessionId: null,
 
   chatBubbleOpen: false,
-  chatBubbleTab: 'search',
+  chatBubbleTab: 'chat',
 
   uiLang: (typeof localStorage !== 'undefined' ? (localStorage.getItem(LANG_KEY) as Lang | null) : null) || 'es',
 
@@ -388,7 +388,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((st) => {
       const sessions = { ...st.sessions, [s.id]: s };
       const order = [s.id, ...st.sessionOrder];
-      saveToStorage(Object.values(sessions), s.id);
+      saveToStorage(Object.values(sessions));
       return {
         sessions,
         sessionOrder: order,
@@ -408,7 +408,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         st.currentSessionId === id
           ? (order[0] ?? null)
           : st.currentSessionId;
-      saveToStorage(Object.values(rest), nextCurrent);
+      saveToStorage(Object.values(rest));
       return {
         sessions: rest,
         sessionOrder: order,
@@ -421,11 +421,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((st) => {
       // id vacio o null = volver al menu de sesiones
       if (!id) {
-        saveToStorage(Object.values(st.sessions), null);
+        saveToStorage(Object.values(st.sessions));
         return { currentSessionId: null, chatBubbleOpen: false };
       }
       if (!st.sessions[id]) return st;
-      saveToStorage(Object.values(st.sessions), id);
+      saveToStorage(Object.values(st.sessions));
       return { currentSessionId: id, chatBubbleOpen: false };
     });
   },
@@ -436,7 +436,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!cur) return st;
       const updated = { ...cur, name, updatedAt: Date.now() };
       const sessions = { ...st.sessions, [id]: updated };
-      saveToStorage(Object.values(sessions), st.currentSessionId);
+      saveToStorage(Object.values(sessions));
       return { sessions };
     }),
 
@@ -454,7 +454,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Mantener id y timestamps.
       const updated: Session = { ...reset, id: cur.id, createdAt: cur.createdAt };
       const sessions = { ...st.sessions, [cur.id]: updated };
-      saveToStorage(Object.values(sessions), cur.id);
+      saveToStorage(Object.values(sessions));
       return { sessions };
     });
   },
@@ -483,7 +483,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         chatLoading: false,
         chatError: null,
       }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     });
   },
@@ -493,14 +493,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setWhisperModel: (m) =>
     set((st) => {
       const next = mutateCurrent(st, () => ({ whisperModel: m }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     }),
 
   setTranscription: (r) =>
     set((st) => {
       const next = mutateCurrent(st, () => ({ transcription: r }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     }),
 
@@ -508,14 +508,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTranscriptionError: (e) =>
     set((st) => {
       const next = mutateCurrent(st, () => ({ transcriptionError: e }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     }),
   setProgressMsg: (m) => set((st) => mutateCurrent(st, () => ({ progressMsg: m }))),
   setActiveTab: (t) =>
     set((st) => {
       const next = mutateCurrent(st, () => ({ activeTab: t }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     }),
 
@@ -527,7 +527,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           [mode]: { ...s.summaries[mode], mode, ...partial },
         },
       }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     }),
 
@@ -567,14 +567,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       const next = mutateCurrent(st, (cur) => ({
         chatMessages: [...cur.chatMessages, msg],
       }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     }),
 
   clearChat: () =>
     set((st) => {
       const next = mutateCurrent(st, () => ({ chatMessages: [], chatError: null }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     }),
 
@@ -582,7 +582,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setChatError: (e) =>
     set((st) => {
       const next = mutateCurrent(st, () => ({ chatError: e }));
-      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }));
       return next;
     }),
 
@@ -670,7 +670,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => {
       const sessions = { ...s.sessions, [imported.id]: imported };
       const order = [imported.id, ...s.sessionOrder];
-      saveToStorage(Object.values(sessions), imported.id);
+      saveToStorage(Object.values(sessions));
       return {
         sessions,
         sessionOrder: order,
@@ -716,3 +716,5 @@ export function parseSegments(trans: TranscriptionResult | null): Segment[] {
   if (!trans) return [];
   return trans.segments;
 }
+
+
