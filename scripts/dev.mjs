@@ -71,9 +71,10 @@ async function main() {
     process.exit(1);
   }
 
-  // 2. Vite
+  // 2. Vite (binario local, no npx del PATH para evitar ENOENT)
   console.log('[dev] Iniciando Vite...');
-  const viteProc = run('vite', 'npx', ['vite']);
+  const viteBin = join(ROOT, 'node_modules', '.bin', isWin ? 'vite.cmd' : 'vite');
+  const viteProc = run('vite', viteBin, []);
 
   // esperar a vite
   try {
@@ -88,7 +89,8 @@ async function main() {
 
   // 3. Electron (con tsc del main process)
   console.log('[dev] Compilando main process...');
-  const tscProc = run('tsc-main', 'npx', ['tsc', '-p', 'electron/tsconfig.json']);
+  const tscBin = join(ROOT, 'node_modules', '.bin', isWin ? 'tsc.cmd' : 'tsc');
+  const tscProc = run('tsc-main', tscBin, ['-p', 'electron/tsconfig.json']);
   await new Promise((r) => {
     tscProc.on('exit', r);
   });
