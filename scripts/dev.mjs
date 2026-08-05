@@ -23,11 +23,16 @@ const isWin = process.platform === 'win32';
 const VENV_PY = join(ROOT, 'python_backend', '.venv', isWin ? 'Scripts' : 'bin', isWin ? 'python.exe' : 'python');
 
 function run(name, cmd, args, opts = {}) {
-  const p = spawn(cmd, args, {
+  // En Windows, los .cmd/.bat requieren shell:true (sino EINVAL)
+  // porque no son ejecutables nativos: los procesa cmd.exe.
+  const useShell = isWin && /\.(cmd|bat)$/i.test(cmd);
+  const finalCmd = useShell ? `"${cmd}"` : cmd;
+  const p = spawn(finalCmd, args, {
     cwd: opts.cwd || ROOT,
     env: { ...process.env, ...opts.env },
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: false,
+    shell: useShell,
+    windowsHide: true,
   });
   p.stdout.on('data', (d) => process.stdout.write(`[${name}] ${d}`));
   p.stderr.on('data', (d) => process.stderr.write(`[${name}-err] ${d}`));
