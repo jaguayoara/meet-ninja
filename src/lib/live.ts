@@ -5,21 +5,16 @@
  *
  * Responsabilidades:
  *  - Abrir el WebSocket con el backend (/live/ws).
- *  - Recibir audio PCM (Int16, 16kHz mono) del caller y mandarlo como binario.
+ *  - Capturar audio segun la fuente (mic / system / both) y resamplear a 16kHz.
+ *  - Acumular samples en chunks de 2s y mandarlos al backend como PCM Int16.
  *  - Recibir eventos del backend y exponerlos via callbacks.
  *  - Cerrar limpio al detener.
- *
- * Convenciones:
- *  - El audio que le llega tiene que ser PCM Int16 mono 16kHz. Si la fuente
- *    es mic/system a 48kHz, el caller tiene que resamplear antes de mandar.
- *  - Los chunks tienen que ser de ~2-3 segundos (ej 48000 samples = 3s a 16kHz).
- *  - El estado se expone como { status, lastTranscript, lastTranslation,
- *    transcripts, translations, error }.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getBaseUrl } from './api';
 
 export type LiveStatus = 'idle' | 'connecting' | 'active' | 'error' | 'closed';
+export type LiveSource = 'mic' | 'system' | 'both';
 
 export type LiveEvent =
   | { type: 'transcript'; text: string; language: string; chunk_index: number }
@@ -29,13 +24,79 @@ export type LiveEvent =
   | { type: 'error'; message: string };
 
 export type LiveOptions = {
-  sourceLang: string;        // 'auto' o 'es', 'en', etc
-  targetLang: string;        // 'es', 'en', 'pt', etc
-  whisperModel?: string;     // default 'small'
+  source: LiveSource;             // 'mic' | 'system' | 'both'
+  sourceLang: string;             // 'auto' o 'es', 'en', etc
+  targetLang: string;             // 'es', 'en', 'pt', etc
+  whisperModel?: string;          // default 'small'
   onTranscript?: (e: { text: string; language: string; chunk_index: number }) => void;
   onTranslation?: (e: { text: string; target_lang: string }) => void;
   onError?: (msg: string) => void;
 };
+
+async function openStream(source: LiveSource): Promise<MediaStream> {
+  if (source === 'mic') {
+    return navigator.mediaDevices.getUserMedia({ audio: true });
+  }
+  if (source === 'system') {
+    if (!window.meetninja?.getDesktopSources) {
+      throw new Error('Solo funciona dentro de la app de Electron');
+    }
+    const sources = await window.meetninja.getDesktopSources();
+    if (sources.length === 0) throw new Error('No hay ventanas/pantallas para capturar');
+    // Sintetica: la primera screen se ofrece como "Todas las pantallas".
+    const firstScreen = sources.find((s) => s.id.startsWith('screen:'));
+    let sourceId: string;
+    if (sources.length === 1 || (sources.length > 1 && firstScreen && sources[0].id === firstScreen.id && sources.length === 2)) {
+      sourceId = firstScreen ? firstScreen.id : sources[0].id;
+    } else {
+      // Para live usamos la primera screen directamente (sin picker)
+      // porque el picker bloquearia el flujo en tiempo real.
+      // Si el user quiere una ventana especifica, que la elija via menu antes.
+      sourceId = firstScreen ? firstScreen.id : sources[0].id;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: sourceId,
+        },
+      } as MediaTrackConstraints,
+      video: {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: sourceId,
+          maxWidth: 1,
+          maxHeight: 1,
+        },
+      } as MediaTrackConstraints,
+    });
+    const videoTracks = stream.getVideoTracks();
+    videoTracks.forEach((t) => t.stop());
+    stream.removeTrack(videoTracks[0]);
+    if (stream.getAudioTracks().length === 0) {
+      throw new Error('La fuente no tiene pista de audio. Proba otra ventana o tilda "compartir audio".');
+    }
+    return stream;
+  }
+  // both: mic + system mezclados via Web Audio API
+  const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+  let sysStream: MediaStream;
+  try {
+    sysStream = await openStream('system');
+  } catch (e) {
+    mic.getTracks().forEach((t) => t.stop());
+    throw e;
+  }
+  // Mezcla via MediaStream (esto se hace fuera, el caller lo conecta al AudioContext)
+  // Para mantener la firma simple, devolvemos un stream combinado via AudioContext.
+  const ctx = new AudioContext();
+  const dest = ctx.createMediaStreamDestination();
+  const micSrc = ctx.createMediaStreamSource(mic);
+  const sysSrc = ctx.createMediaStreamSource(sysStream);
+  micSrc.connect(dest);
+  sysSrc.connect(dest);
+  return dest.stream;
+}
 
 export function useLiveSession(opts: LiveOptions) {
   const [status, setStatus] = useState<LiveStatus>('idle');
@@ -60,10 +121,10 @@ export function useLiveSession(opts: LiveOptions) {
     setLastTranscript(null);
     setLastTranslation(null);
 
-    // 1) Pedir el stream de audio (mic por ahora, luego se podra elegir)
+    // 1) Capturar stream segun la fuente elegida
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await openStream(opts.source);
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
       setError(m);
@@ -74,7 +135,6 @@ export function useLiveSession(opts: LiveOptions) {
 
     // 2) Abrir WebSocket con el backend
     const baseUrl = await getBaseUrl();
-    // baseUrl es http://...:puerto, lo pasamos a ws://
     const wsUrl = baseUrl.replace(/^http/, 'ws') + '/live/ws';
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -124,26 +184,22 @@ export function useLiveSession(opts: LiveOptions) {
       stopAudioPipeline();
     };
 
-    // 3) Pipeline de audio: AudioContext a 16kHz, ScriptProcessor que produce
-    // PCM Int16 y lo manda al WebSocket.
+    // 3) Pipeline de audio
     try {
       const audioCtx = new AudioContext({ sampleRate: 16000 });
       audioCtxRef.current = audioCtx;
       const source = audioCtx.createMediaStreamSource(stream);
       sourceRef.current = source;
-      // ScriptProcessor con buffer de 4096 samples (~256ms a 16kHz).
       const processor = audioCtx.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
       let buffer: number[] = [];
       const CHUNK_SAMPLES = 16000 * 2; // 2 segundos
       processor.onaudioprocess = (e) => {
         const inData = e.inputBuffer.getChannelData(0);
-        // Acumular samples
         for (let i = 0; i < inData.length; i++) buffer.push(inData[i]);
         if (buffer.length >= CHUNK_SAMPLES) {
           const chunk = new Float32Array(buffer.slice(0, CHUNK_SAMPLES));
           buffer = buffer.slice(CHUNK_SAMPLES);
-          // Convertir float32 [-1, 1] -> int16
           const pcm16 = new Int16Array(chunk.length);
           for (let i = 0; i < chunk.length; i++) {
             const s = Math.max(-1, Math.min(1, chunk[i]));
@@ -155,8 +211,6 @@ export function useLiveSession(opts: LiveOptions) {
         }
       };
       source.connect(processor);
-      // Conectar a un gain mudo y al destination para que el processor se ejecute
-      // (en algunos navegadores hay que conectar a destination para que onaudioprocess dispare).
       const mute = audioCtx.createGain();
       mute.gain.value = 0;
       processor.connect(mute);
@@ -169,17 +223,13 @@ export function useLiveSession(opts: LiveOptions) {
       return;
     }
 
-    // 4) Tambien grabar el audio para tenerlo al final (MediaRecorder)
+    // 4) Tambien grabar el audio para tenerlo al final
     try {
       const rec = new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
       rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       rec.onstop = () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
-        // Guardamos el blob en el state para que el caller lo levante.
-        // Lo emitimos via una callback opcional.
-        opts.onTranscript?.({ text: '', language: '', chunk_index: -1 });
-        // Para no acoplar al estado, lo guardamos en una ref accesible:
         (window as unknown as { __liveRecording?: Blob }).__liveRecording = blob;
       };
       rec.start(1000);
@@ -222,7 +272,6 @@ export function useLiveSession(opts: LiveOptions) {
     setStatus('closed');
   }, []);
 
-  // Limpieza al desmontar
   useEffect(() => {
     return () => {
       stopAudioPipeline();

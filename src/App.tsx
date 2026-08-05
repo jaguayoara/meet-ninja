@@ -17,7 +17,7 @@ import { TranslatePanel } from './components/TranslatePanel';
 import { SessionMenu } from './components/SessionMenu';
 import { ChatBubble } from './components/ChatBubble';
 import { LiveOverlay, type LiveLine } from './components/LiveOverlay';
-import { useLiveSession } from './lib/live';
+import { useLiveSession, type LiveSource } from './lib/live';
 import {
   useAppStore,
   useCurrentSession,
@@ -165,7 +165,9 @@ function SessionView({ sessionId }: { sessionId: string }) {
   const [transcriptLines, setTranscriptLines] = useState<LiveLine[]>([]);
   const [translationLines, setTranslationLines] = useState<LiveLine[]>([]);
   const [liveVisible, setLiveVisible] = useState(true);
+  const [liveSource, setLiveSource] = useState<LiveSource>('system');
   const live = useLiveSession({
+    source: liveSource,
     sourceLang: uiLang === 'en' ? 'en' : uiLang === 'pt' ? 'pt' : 'es',
     targetLang: uiLang,
     whisperModel: whisperModel,
@@ -342,10 +344,45 @@ function SessionView({ sessionId }: { sessionId: string }) {
           <p className="hint" style={{ marginTop: 0, marginBottom: 8 }}>
             {t('live.hint')}
           </p>
+          {live.status !== 'active' && live.status !== 'connecting' && (
+            <div className="recorder-source" role="radiogroup" aria-label={t('live.source')}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={liveSource === 'mic'}
+                className={'chip' + (liveSource === 'mic' ? ' chip-active' : '')}
+                onClick={() => setLiveSource('mic')}
+                title={t('live.sourceMicTitle')}
+              >
+                {t('live.sourceMic')}
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={liveSource === 'system'}
+                className={'chip' + (liveSource === 'system' ? ' chip-active' : '')}
+                onClick={() => setLiveSource('system')}
+                title={t('live.sourceSystemTitle')}
+              >
+                {t('live.sourceSystem')}
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={liveSource === 'both'}
+                className={'chip' + (liveSource === 'both' ? ' chip-active' : '')}
+                onClick={() => setLiveSource('both')}
+                title={t('live.sourceBothTitle')}
+              >
+                {t('live.sourceBoth')}
+              </button>
+            </div>
+          )}
           {live.status === 'idle' || live.status === 'closed' || live.status === 'error' ? (
             <button
               type="button"
               className="btn btn-primary btn-lg"
+              style={{ marginTop: 8, width: '100%' }}
               onClick={() => { setTranscriptLines([]); setTranslationLines([]); live.start(); }}
               disabled={!backendReady}
             >
