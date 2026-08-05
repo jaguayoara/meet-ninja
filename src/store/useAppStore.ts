@@ -1,17 +1,30 @@
 /**
  * Estado global con Zustand.
  *
- * Mantiene:
- *  - Audio cargado / grabacion activa.
- *  - Resultado de la transcripcion.
- *  - Estado de UI: tab activo, busqueda, errores.
- *  - Configuracion: modelo whisper, idioma.
+ * Maneja multiples sesiones concurrentes. Cada sesion guarda:
+ *   - Audio (blob + nombre + duracion)
+ *   - Transcripcion + estado de progreso
+ *   - Summaries por modo
+ *   - Search y Chat
+ *   - Modelo whisper elegido
+ *
+ * Estado global (no por sesion):
+ *   - Backend health (whisper, ollama, llm local)
+ *   - Idioma de UI
+ *   - Lista de sesiones y sesion activa
+ *   - Estado del ChatBubble flotante
+ *
+ * Persistencia:
+ *   - Metadata + transcripcion + summaries + chat en localStorage
+ *   - Blobs de audio SOLO en memoria (se pierden al cerrar la app;
+ *     el usuario puede re-grabar o re-cargar el archivo).
  */
 import { create } from 'zustand';
 import type { Segment, TranscriptionResult } from '../lib/api';
 
 export type Mode = 'reunion' | 'estudio' | 'conversacion';
 export type TabId = 'transcripcion' | 'reunion' | 'estudio' | 'conversacion';
+export type Lang = 'es' | 'en' | 'pt';
 
 export type SummarizeResult = {
   mode: Mode;
@@ -21,81 +34,45 @@ export type SummarizeResult = {
 };
 
 export type SearchState = {
-  terms: string;        // string crudo del input
-  parsedTerms: string[]; // terminos separados por coma/salto de linea
+  terms: string;
+  parsedTerms: string[];
   mode: 'any' | 'all';
   results: Array<{ term: string; segment_index: number; start: number; end: number; snippet: string }>;
   loading: boolean;
   error: string | null;
-  activeMatchIdx: number; // navegacion con flechas
+  activeMatchIdx: number;
 };
 
-type AppState = {
-  // backend status
-  backendReady: boolean;
-  backendError: string | null;
-  whisperModel: string;
-  whisperAvailable: string[];
-  ollamaAvailable: boolean;
-  ollamaModel: string;
-  ollamaMaxModelB: number;
-  ollamaAllowOversize: boolean;
+export type ChatMsg = { role: 'user' | 'assistant'; content: string };
 
-  // audio
+export type Session = {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
   audioBlob: Blob | null;
   audioFileName: string | null;
   audioDuration: number;
   isRecording: boolean;
-
-  // transcripcion
   transcription: TranscriptionResult | null;
   isTranscribing: boolean;
   transcriptionError: string | null;
   progressMsg: string;
-
-  // ui
+  whisperModel: string;
   activeTab: TabId;
-
-  // resumen por modo
   summaries: Record<Mode, SummarizeResult>;
-
-  // busqueda
   search: SearchState;
-
-  // chat
-  chatMessages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  chatMessages: ChatMsg[];
   chatLoading: boolean;
   chatError: string | null;
-
-  // i18n
-  uiLang: 'es' | 'en' | 'pt';
-
-  // setters
-  setBackendStatus: (s: Partial<Pick<AppState, 'backendReady' | 'backendError' | 'whisperModel' | 'whisperAvailable' | 'ollamaAvailable' | 'ollamaModel' | 'ollamaMaxModelB' | 'ollamaAllowOversize'>>) => void;
-  setAudio: (blob: Blob | null, name: string | null, duration?: number) => void;
-  setRecording: (v: boolean) => void;
-  setWhisperModel: (m: string) => void;
-  setTranscription: (r: TranscriptionResult | null) => void;
-  setIsTranscribing: (v: boolean) => void;
-  setTranscriptionError: (e: string | null) => void;
-  setProgressMsg: (m: string) => void;
-  setActiveTab: (t: TabId) => void;
-  setSummary: (mode: Mode, partial: Partial<SummarizeResult>) => void;
-  setSearchTerms: (s: string) => void;
-  setSearchMode: (m: 'any' | 'all') => void;
-  setSearchResults: (results: SearchState['results'], error?: string | null) => void;
-  setSearchLoading: (v: boolean) => void;
-  setActiveMatch: (i: number) => void;
-  addChatMessage: (msg: { role: 'user' | 'assistant'; content: string }) => void;
-  clearChat: () => void;
-  setChatLoading: (v: boolean) => void;
-  setChatError: (e: string | null) => void;
-  setUiLang: (lang: 'es' | 'en' | 'pt') => void;
-  reset: () => void;
 };
 
-const emptySummary = (): SummarizeResult => ({
-  mode: 'reunion',
+const STORAGE_KEY = 'meetninja.sessions.v1';
+const LANG_KEY = 'meetninja.lang';
+const CURRENT_KEY = 'meetninja.currentSession.v1';
+
+const emptySummary = (mode: Mode): SummarizeResult => ({
+  mode,
   data: null,
   loading: false,
   error: null,
@@ -111,11 +88,202 @@ const initialSearch: SearchState = {
   activeMatchIdx: 0,
 };
 
-const initialChat = {
-  chatMessages: [] as Array<{ role: 'user' | 'assistant'; content: string }>,
-  chatLoading: false,
-  chatError: null as string | null,
+function makeSession(partial: Partial<Session> = {}, whisperModel = 'small'): Session {
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    name: 'Nueva sesion',
+    createdAt: now,
+    updatedAt: now,
+    audioBlob: null,
+    audioFileName: null,
+    audioDuration: 0,
+    isRecording: false,
+    transcription: null,
+    isTranscribing: false,
+    transcriptionError: null,
+    progressMsg: '',
+    whisperModel,
+    activeTab: 'transcripcion',
+    summaries: {
+      reunion: emptySummary('reunion'),
+      estudio: emptySummary('estudio'),
+      conversacion: emptySummary('conversacion'),
+    },
+    search: { ...initialSearch },
+    chatMessages: [],
+    chatLoading: false,
+    chatError: null,
+    ...partial,
+  };
+}
+
+/** Serializa una sesion para localStorage (sin el audioBlob). */
+function serializeSession(s: Session): Record<string, unknown> {
+  return {
+    id: s.id,
+    name: s.name,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    audioFileName: s.audioFileName,
+    audioDuration: s.audioDuration,
+    hasAudio: s.audioBlob != null,
+    transcription: s.transcription,
+    isTranscribing: false,
+    transcriptionError: s.transcriptionError,
+    progressMsg: '',
+    whisperModel: s.whisperModel,
+    activeTab: s.activeTab,
+    summaries: s.summaries,
+    search: s.search,
+    chatMessages: s.chatMessages,
+    chatLoading: false,
+    chatError: s.chatError,
+  };
+}
+
+function deserializeSession(o: Record<string, unknown>): Session {
+  return makeSession({
+    id: o.id as string,
+    name: (o.name as string) || 'Nueva sesion',
+    createdAt: (o.createdAt as number) || Date.now(),
+    updatedAt: (o.updatedAt as number) || Date.now(),
+    audioBlob: null, // Blobs no persisten
+    audioFileName: (o.audioFileName as string | null) ?? null,
+    audioDuration: (o.audioDuration as number) || 0,
+    transcription: (o.transcription as TranscriptionResult | null) ?? null,
+    isTranscribing: false,
+    transcriptionError: (o.transcriptionError as string | null) ?? null,
+    progressMsg: '',
+    whisperModel: (o.whisperModel as string) || 'small',
+    activeTab: (o.activeTab as TabId) || 'transcripcion',
+    summaries: (o.summaries as Session['summaries']) || {
+      reunion: emptySummary('reunion'),
+      estudio: emptySummary('estudio'),
+      conversacion: emptySummary('conversacion'),
+    },
+    search: (o.search as SearchState) || { ...initialSearch },
+    chatMessages: (o.chatMessages as ChatMsg[]) || [],
+    chatLoading: false,
+    chatError: (o.chatError as string | null) ?? null,
+  });
+}
+
+function loadFromStorage(): { sessions: Session[]; currentId: string | null } {
+  if (typeof localStorage === 'undefined') return { sessions: [], currentId: null };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { sessions: [], currentId: null };
+    const arr = JSON.parse(raw) as Record<string, unknown>[];
+    const sessions = arr.map(deserializeSession);
+    const currentId =
+      (typeof localStorage !== 'undefined' ? localStorage.getItem(CURRENT_KEY) : null) || null;
+    return { sessions, currentId };
+  } catch {
+    return { sessions: [], currentId: null };
+  }
+}
+
+function saveToStorage(sessions: Session[], currentId: string | null) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const arr = sessions.map(serializeSession);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+    if (currentId) localStorage.setItem(CURRENT_KEY, currentId);
+    else localStorage.removeItem(CURRENT_KEY);
+  } catch {
+    // localStorage lleno o no disponible, ignorar
+  }
+}
+
+type AppState = {
+  // ---- backend (global) ----
+  backendReady: boolean;
+  backendError: string | null;
+  whisperModel: string;
+  whisperAvailable: string[];
+  ollamaAvailable: boolean;
+  ollamaModel: string;
+  ollamaMaxModelB: number;
+  ollamaAllowOversize: boolean;
+
+  // ---- sessions ----
+  sessions: Record<string, Session>;
+  sessionOrder: string[];
+  currentSessionId: string | null;
+
+  // ---- chat bubble UI ----
+  chatBubbleOpen: boolean;
+  chatBubbleTab: 'search' | 'chat';
+
+  // ---- ui lang ----
+  uiLang: Lang;
+
+  // ---- actions: backend ----
+  setBackendStatus: (s: Partial<Pick<AppState,
+    'backendReady' | 'backendError' | 'whisperModel' | 'whisperAvailable' |
+    'ollamaAvailable' | 'ollamaModel' | 'ollamaMaxModelB' | 'ollamaAllowOversize'
+  >>) => void;
+
+  // ---- actions: sessions ----
+  createSession: (name?: string) => string;
+  deleteSession: (id: string) => void;
+  setCurrentSession: (id: string) => void;
+  renameSession: (id: string, name: string) => void;
+  resetCurrent: () => void;
+
+  // ---- actions: current session data (operan sobre la sesion activa) ----
+  setAudio: (blob: Blob | null, name: string | null, duration?: number) => void;
+  setRecording: (v: boolean) => void;
+  setWhisperModel: (m: string) => void;
+  setTranscription: (r: TranscriptionResult | null) => void;
+  setIsTranscribing: (v: boolean) => void;
+  setTranscriptionError: (e: string | null) => void;
+  setProgressMsg: (m: string) => void;
+  setActiveTab: (t: TabId) => void;
+  setSummary: (mode: Mode, partial: Partial<SummarizeResult>) => void;
+  setSearchTerms: (s: string) => void;
+  setSearchMode: (m: 'any' | 'all') => void;
+  setSearchResults: (results: SearchState['results'], error?: string | null) => void;
+  setSearchLoading: (v: boolean) => void;
+  setActiveMatch: (i: number) => void;
+  addChatMessage: (msg: ChatMsg) => void;
+  clearChat: () => void;
+  setChatLoading: (v: boolean) => void;
+  setChatError: (e: string | null) => void;
+
+  // ---- actions: chat bubble UI ----
+  setChatBubbleOpen: (v: boolean) => void;
+  toggleChatBubble: () => void;
+  setChatBubbleTab: (t: 'search' | 'chat') => void;
+
+  // ---- actions: ui lang ----
+  setUiLang: (lang: Lang) => void;
 };
+
+// --------------------------- helpers ---------------------------
+
+function mutateCurrent(
+  state: AppState,
+  fn: (s: Session) => Partial<Session>,
+): Partial<AppState> {
+  if (!state.currentSessionId) return {};
+  const cur = state.sessions[state.currentSessionId];
+  if (!cur) return {};
+  const updated = { ...cur, ...fn(cur), updatedAt: Date.now() };
+  return {
+    sessions: { ...state.sessions, [cur.id]: updated },
+  };
+}
+
+// --------------------------- store ---------------------------
+
+const initial = loadFromStorage();
+const initialMap: Record<string, Session> = {};
+for (const s of initial.sessions) initialMap[s.id] = s;
+const initialOrder = initial.sessions
+  .sort((a, b) => b.updatedAt - a.updatedAt)
+  .map((s) => s.id);
 
 export const useAppStore = create<AppState>((set) => ({
   backendReady: false,
@@ -127,116 +295,227 @@ export const useAppStore = create<AppState>((set) => ({
   ollamaMaxModelB: 4,
   ollamaAllowOversize: false,
 
-  audioBlob: null,
-  audioFileName: null,
-  audioDuration: 0,
-  isRecording: false,
+  sessions: initialMap,
+  sessionOrder: initialOrder,
+  currentSessionId:
+    initial.currentId && initialMap[initial.currentId] ? initial.currentId : null,
 
-  transcription: null,
-  isTranscribing: false,
-  transcriptionError: null,
-  progressMsg: '',
+  chatBubbleOpen: false,
+  chatBubbleTab: 'search',
 
-  activeTab: 'transcripcion',
-
-  summaries: {
-    reunion: emptySummary(),
-    estudio: emptySummary(),
-    conversacion: emptySummary(),
-  },
-
-  search: initialSearch,
-  ...initialChat,
-  uiLang: (typeof localStorage !== 'undefined' ? (localStorage.getItem('meetninja.lang') as 'es' | 'en' | 'pt' | null) : null) || 'es',
+  uiLang: (typeof localStorage !== 'undefined' ? (localStorage.getItem(LANG_KEY) as Lang | null) : null) || 'es',
 
   setBackendStatus: (s) => set((st) => ({ ...st, ...s })),
-  setAudio: (blob, name, duration = 0) =>
-    set(() => ({
-      audioBlob: blob,
-      audioFileName: name,
-      audioDuration: duration,
-      // resetear transcripcion previa
-      transcription: null,
-      transcriptionError: null,
-      summaries: {
-        reunion: emptySummary(),
-        estudio: emptySummary(),
-        conversacion: emptySummary(),
-      },
-      search: initialSearch,
-      chatMessages: [],
-      chatLoading: false,
-      chatError: null,
-    })),
-  setRecording: (v) => set(() => ({ isRecording: v })),
-  setWhisperModel: (m) => set(() => ({ whisperModel: m })),
-  setTranscription: (r) => set(() => ({ transcription: r })),
-  setIsTranscribing: (v) => set(() => ({ isTranscribing: v })),
-  setTranscriptionError: (e) => set(() => ({ transcriptionError: e })),
-  setProgressMsg: (m) => set(() => ({ progressMsg: m })),
-  setActiveTab: (t) => set(() => ({ activeTab: t })),
-  setSummary: (mode, partial) =>
-    set((st) => ({
-      summaries: {
-        ...st.summaries,
-        [mode]: { ...st.summaries[mode], mode, ...partial },
-      },
-    })),
-  setSearchTerms: (s) => {
-    const parsed = s
-      .split(/[,\n;]/)
-      .map((t) => t.trim())
-      .filter(Boolean);
-    set((st) => ({
-      search: { ...st.search, terms: s, parsedTerms: parsed },
-    }));
+
+  createSession: (name) => {
+    const s = makeSession({ name: name || 'Nueva sesion' });
+    set((st) => {
+      const sessions = { ...st.sessions, [s.id]: s };
+      const order = [s.id, ...st.sessionOrder];
+      saveToStorage(Object.values(sessions), s.id);
+      return {
+        sessions,
+        sessionOrder: order,
+        currentSessionId: s.id,
+        chatBubbleOpen: false,
+      };
+    });
+    return s.id;
   },
+
+  deleteSession: (id) =>
+    set((st) => {
+      const { [id]: _, ...rest } = st.sessions;
+      const order = st.sessionOrder.filter((x) => x !== id);
+      const nextCurrent =
+        st.currentSessionId === id
+          ? (order[0] ?? null)
+          : st.currentSessionId;
+      saveToStorage(Object.values(rest), nextCurrent);
+      return {
+        sessions: rest,
+        sessionOrder: order,
+        currentSessionId: nextCurrent,
+      };
+    }),
+
+  setCurrentSession: (id) => {
+    set((st) => {
+      if (!st.sessions[id]) return st;
+      saveToStorage(Object.values(st.sessions), id);
+      return { currentSessionId: id, chatBubbleOpen: false };
+    });
+  },
+
+  renameSession: (id, name) =>
+    set((st) => {
+      const cur = st.sessions[id];
+      if (!cur) return st;
+      const updated = { ...cur, name, updatedAt: Date.now() };
+      const sessions = { ...st.sessions, [id]: updated };
+      saveToStorage(Object.values(sessions), st.currentSessionId);
+      return { sessions };
+    }),
+
+  resetCurrent: () =>
+    set((st) => {
+      if (!st.currentSessionId) return st;
+      const cur = st.sessions[st.currentSessionId];
+      if (!cur) return st;
+      const reset = makeSession(
+        { whisperModel: cur.whisperModel, name: cur.name },
+        cur.whisperModel,
+      );
+      // Mantener id y timestamps.
+      const updated: Session = { ...reset, id: cur.id, createdAt: cur.createdAt };
+      const sessions = { ...st.sessions, [cur.id]: updated };
+      saveToStorage(Object.values(sessions), cur.id);
+      return { sessions };
+    }),
+
+  // ---- current session setters ----
+  setAudio: (blob, name, duration = 0) =>
+    set((st) => {
+      const next = mutateCurrent(st, () => ({
+        audioBlob: blob,
+        audioFileName: name,
+        audioDuration: duration,
+        transcription: null,
+        transcriptionError: null,
+        summaries: {
+          reunion: emptySummary('reunion'),
+          estudio: emptySummary('estudio'),
+          conversacion: emptySummary('conversacion'),
+        },
+        search: { ...initialSearch },
+        chatMessages: [],
+        chatLoading: false,
+        chatError: null,
+      }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+
+  setRecording: (v) => set((st) => mutateCurrent(st, () => ({ isRecording: v }))),
+
+  setWhisperModel: (m) =>
+    set((st) => {
+      const next = mutateCurrent(st, () => ({ whisperModel: m }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+
+  setTranscription: (r) =>
+    set((st) => {
+      const next = mutateCurrent(st, () => ({ transcription: r }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+
+  setIsTranscribing: (v) => set((st) => mutateCurrent(st, () => ({ isTranscribing: v }))),
+  setTranscriptionError: (e) =>
+    set((st) => {
+      const next = mutateCurrent(st, () => ({ transcriptionError: e }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+  setProgressMsg: (m) => set((st) => mutateCurrent(st, () => ({ progressMsg: m }))),
+  setActiveTab: (t) =>
+    set((st) => {
+      const next = mutateCurrent(st, () => ({ activeTab: t }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+
+  setSummary: (mode, partial) =>
+    set((st) => {
+      const next = mutateCurrent(st, (s) => ({
+        summaries: {
+          ...s.summaries,
+          [mode]: { ...s.summaries[mode], mode, ...partial },
+        },
+      }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+
+  setSearchTerms: (s) =>
+    set((st) => {
+      const parsed = s
+        .split(/[,\n;]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+      return mutateCurrent(st, (cur) => ({
+        search: { ...cur.search, terms: s, parsedTerms: parsed },
+      }));
+    }),
+
   setSearchMode: (m) =>
-    set((st) => ({ search: { ...st.search, mode: m } })),
+    set((st) => mutateCurrent(st, (cur) => ({
+      search: { ...cur.search, mode: m },
+    }))),
+
   setSearchResults: (results, error = null) =>
-    set((st) => ({
-      search: { ...st.search, results, error, activeMatchIdx: 0, loading: false },
-    })),
+    set((st) => mutateCurrent(st, (cur) => ({
+      search: { ...cur.search, results, error, activeMatchIdx: 0, loading: false },
+    }))),
+
   setSearchLoading: (v) =>
-    set((st) => ({ search: { ...st.search, loading: v } })),
+    set((st) => mutateCurrent(st, (cur) => ({
+      search: { ...cur.search, loading: v },
+    }))),
+
   setActiveMatch: (i) =>
-    set((st) => ({ search: { ...st.search, activeMatchIdx: i } })),
+    set((st) => mutateCurrent(st, (cur) => ({
+      search: { ...cur.search, activeMatchIdx: i },
+    }))),
+
   addChatMessage: (msg) =>
-    set((st) => ({ chatMessages: [...st.chatMessages, msg] })),
+    set((st) => {
+      const next = mutateCurrent(st, (cur) => ({
+        chatMessages: [...cur.chatMessages, msg],
+      }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+
   clearChat: () =>
-    set(() => ({ chatMessages: [], chatError: null })),
-  setChatLoading: (v) => set(() => ({ chatLoading: v })),
-  setChatError: (e) => set(() => ({ chatError: e })),
+    set((st) => {
+      const next = mutateCurrent(st, () => ({ chatMessages: [], chatError: null }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+
+  setChatLoading: (v) => set((st) => mutateCurrent(st, () => ({ chatLoading: v }))),
+  setChatError: (e) =>
+    set((st) => {
+      const next = mutateCurrent(st, () => ({ chatError: e }));
+      saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
+      return next;
+    }),
+
+  // ---- chat bubble ----
+  setChatBubbleOpen: (v) => set(() => ({ chatBubbleOpen: v })),
+  toggleChatBubble: () => set((st) => ({ chatBubbleOpen: !st.chatBubbleOpen })),
+  setChatBubbleTab: (t) => set(() => ({ chatBubbleTab: t })),
+
+  // ---- ui lang ----
   setUiLang: (lang) => {
     set(() => ({ uiLang: lang }));
     if (typeof localStorage !== 'undefined') {
-      try { localStorage.setItem('meetninja.lang', lang); } catch { /* noop */ }
+      try { localStorage.setItem(LANG_KEY, lang); } catch { /* noop */ }
     }
   },
-  reset: () =>
-    set(() => ({
-      audioBlob: null,
-      audioFileName: null,
-      audioDuration: 0,
-      isRecording: false,
-      transcription: null,
-      isTranscribing: false,
-      transcriptionError: null,
-      progressMsg: '',
-      activeTab: 'transcripcion',
-      summaries: {
-        reunion: emptySummary(),
-        estudio: emptySummary(),
-        conversacion: emptySummary(),
-      },
-      search: initialSearch,
-      chatMessages: [],
-      chatLoading: false,
-      chatError: null,
-    })),
 }));
 
-// Helpers
+// ---- selectors helpers ----
+export function useCurrentSession(): Session | null {
+  return useAppStore((s) =>
+    s.currentSessionId ? s.sessions[s.currentSessionId] : null,
+  );
+}
+
+// ---- helpers ----
 export function parseSegments(trans: TranscriptionResult | null): Segment[] {
   if (!trans) return [];
   return trans.segments;

@@ -9,15 +9,16 @@
  * - Acento-insensitive y case-insensitive.
  */
 import { useEffect } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useCurrentSession } from '../store/useAppStore';
 import { search as searchApi } from '../lib/api';
 import { downloadText } from '../lib/format';
 import { useTranslation } from '../i18n/useTranslation';
 
 export function SearchPanel() {
   const { t, tp } = useTranslation();
-  const transcription = useAppStore((s) => s.transcription);
-  const search = useAppStore((s) => s.search);
+  const session = useCurrentSession();
+  const transcription = session?.transcription ?? null;
+  const search = session?.search ?? { terms: '', parsedTerms: [], mode: 'any' as const, results: [], loading: false, error: null, activeMatchIdx: 0 };
   const setSearchTerms = useAppStore((s) => s.setSearchTerms);
   const setSearchMode = useAppStore((s) => s.setSearchMode);
   const setSearchResults = useAppStore((s) => s.setSearchResults);

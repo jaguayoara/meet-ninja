@@ -4,15 +4,16 @@
  * Pensado para: espanol -> ingles, portugues, frances, etc.
  */
 import { useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useCurrentSession } from '../store/useAppStore';
 import { translate } from '../lib/api';
 import { useTranslation } from '../i18n/useTranslation';
 import { TRANSLATE_TARGETS } from '../i18n/translations';
 import { downloadText } from '../lib/format';
 
 export function TranslatePanel() {
-  const transcription = useAppStore((s) => s.transcription);
-  const audioFileName = useAppStore((s) => s.audioFileName);
+  const session = useCurrentSession();
+  const transcription = session?.transcription ?? null;
+  const audioFileName = session?.audioFileName ?? null;
   const { t } = useTranslation();
 
   const [target, setTarget] = useState<string>('en');

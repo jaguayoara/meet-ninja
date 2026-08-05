@@ -3,7 +3,7 @@
  * (reunion, estudio, conversacion). Renderiza el JSON estructurado
  * con fallbacks amigables si el resumen esta vacio o fallo.
  */
-import { useAppStore, type Mode } from '../store/useAppStore';
+import { useAppStore, useCurrentSession, type Mode } from '../store/useAppStore';
 import { summarize } from '../lib/api';
 import { downloadText } from '../lib/format';
 import { useTranslation } from '../i18n/useTranslation';
@@ -25,8 +25,9 @@ const DESCRIPTIONS: Record<Mode, string> = {
 
 export function ModePanel({ mode }: { mode: Mode }) {
   const { t } = useTranslation();
-  const transcription = useAppStore((s) => s.transcription);
-  const summary = useAppStore((s) => s.summaries[mode]);
+  const session = useCurrentSession();
+  const transcription = session?.transcription ?? null;
+  const summary = session?.summaries[mode] ?? { mode, data: null, loading: false, error: null };
   const setSummary = useAppStore((s) => s.setSummary);
 
   async function run() {

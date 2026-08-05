@@ -2,19 +2,25 @@
  * Meet Ninja - Shell principal.
  *
  * Estructura:
- *  - Header: estado del backend, version, controles globales.
- *  - Panel izq: Recorder + FileDrop + controles de transcripcion + Search.
- *  - Panel der: Tabs (Transcripcion / Reunion / Estudio / Conversacion).
+ *  - Header: estado del backend, version, controles globales, ir a menu.
+ *  - Si hay sesion activa: SessionView (Recorder + FileDrop + controles +
+ *    tabs Transcripcion / Reunion / Estudio / Conversacion).
+ *  - Si NO hay sesion activa: SessionMenu (lista de sesiones + nueva).
+ *  - ChatBubble flotante: solo si hay transcripcion en la sesion activa.
  */
 import { useEffect, useState } from 'react';
 import { Recorder } from './components/Recorder';
 import { FileDrop } from './components/FileDrop';
 import { TranscriptionView } from './components/TranscriptionView';
 import { ModePanel } from './components/ModePanel';
-import { SearchPanel } from './components/SearchPanel';
-import { ChatPanel } from './components/ChatPanel';
 import { TranslatePanel } from './components/TranslatePanel';
-import { useAppStore, type TabId } from './store/useAppStore';
+import { SessionMenu } from './components/SessionMenu';
+import { ChatBubble } from './components/ChatBubble';
+import {
+  useAppStore,
+  useCurrentSession,
+  type TabId,
+} from './store/useAppStore';
 import { health as healthApi, transcribe as transcribeApi } from './lib/api';
 import { downloadText, humanSize } from './lib/format';
 import { useTranslation } from './i18n/useTranslation';
@@ -24,35 +30,14 @@ const TABS: { id: TabId; key: string; icon: string }[] = [
   { id: 'transcripcion', key: 'tab.transcripcion', icon: '📝' },
   { id: 'reunion',       key: 'tab.reunion',       icon: '🗂️' },
   { id: 'estudio',       key: 'tab.estudio',       icon: '📚' },
-  { id: 'conversacion',  key: 'tab.conversacion',  icon: '💬' },
+  { id: 'conversacion',  key: 'tab.conversacion',  icon: '🗨️' },
 ];
 
 export default function App() {
   const { t } = useTranslation();
-  const audioBlob = useAppStore((s) => s.audioBlob);
-  const audioFileName = useAppStore((s) => s.audioFileName);
-  const audioDuration = useAppStore((s) => s.audioDuration);
-  const isRecording = useAppStore((s) => s.isRecording);
-  const transcription = useAppStore((s) => s.transcription);
-  const isTranscribing = useAppStore((s) => s.isTranscribing);
-  const transcriptionError = useAppStore((s) => s.transcriptionError);
-  const progressMsg = useAppStore((s) => s.progressMsg);
-  const activeTab = useAppStore((s) => s.activeTab);
-  const setActiveTab = useAppStore((s) => s.setActiveTab);
-  const whisperModel = useAppStore((s) => s.whisperModel);
-  const whisperAvailable = useAppStore((s) => s.whisperAvailable);
-  const ollamaAvailable = useAppStore((s) => s.ollamaAvailable);
-  const ollamaModel = useAppStore((s) => s.ollamaModel);
-  const ollamaMaxModelB = useAppStore((s) => s.ollamaMaxModelB);
-  const backendReady = useAppStore((s) => s.backendReady);
-  const backendError = useAppStore((s) => s.backendError);
-  const setBackendStatus = useAppStore((s) => s.setBackendStatus);
-  const setWhisperModel = useAppStore((s) => s.setWhisperModel);
-  const setIsTranscribing = useAppStore((s) => s.setIsTranscribing);
-  const setTranscriptionError = useAppStore((s) => s.setTranscriptionError);
-  const setProgressMsg = useAppStore((s) => s.setProgressMsg);
-  const setTranscription = useAppStore((s) => s.setTranscription);
-  const reset = useAppStore((s) => s.reset);
+  const session = useCurrentSession();
+  const currentSessionId = useAppStore((s) => s.currentSessionId);
+  const createSession = useAppStore((s) => s.createSession);
 
   const [version, setVersion] = useState<string>('');
 
@@ -64,7 +49,7 @@ export default function App() {
         try {
           const h = await healthApi();
           if (cancelled) return;
-          setBackendStatus({
+          useAppStore.getState().setBackendStatus({
             backendReady: true,
             backendError: null,
             whisperModel: h.whisper.default_model,
@@ -80,7 +65,7 @@ export default function App() {
         }
       }
       if (!cancelled) {
-        setBackendStatus({
+        useAppStore.getState().setBackendStatus({
           backendReady: false,
           backendError: 'No se pudo conectar al backend Python. Ejecuta scripts\\setup-python.ps1 y reinicia la app.',
         });
@@ -90,7 +75,6 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // version de la app
@@ -99,6 +83,89 @@ export default function App() {
       window.meetninja.getVersion().then(setVersion).catch(() => undefined);
     }
   }, []);
+
+  // Auto-crear primera sesion si no hay ninguna (y el backend esta listo)
+  const backendReady = useAppStore((s) => s.backendReady);
+  useEffect(() => {
+    if (backendReady && !currentSessionId) {
+      createSession();
+    }
+  }, [backendReady, currentSessionId, createSession]);
+
+  const backendError = useAppStore((s) => s.backendError);
+  const ollamaAvailable = useAppStore((s) => s.ollamaAvailable);
+  const ollamaModel = useAppStore((s) => s.ollamaModel);
+  const ollamaMaxModelB = useAppStore((s) => s.ollamaMaxModelB);
+  const setCurrentSession = useAppStore((s) => s.setCurrentSession);
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="brand">
+          <button
+            type="button"
+            className="brand-home"
+            onClick={() => setCurrentSession('')}
+            title={t('header.goMenu')}
+            aria-label={t('header.goMenu')}
+          >
+            <span className="brand-mark">🥷</span>
+            <span className="brand-name">Meet Ninja</span>
+            {version && <span className="brand-version">v{version}</span>}
+          </button>
+        </div>
+        <div className="header-status">
+          <LanguageSelector />
+          <BackendStatus
+            ready={backendReady}
+            error={backendError}
+            ollamaAvailable={ollamaAvailable}
+            ollamaModel={ollamaModel}
+            ollamaMaxModelB={ollamaMaxModelB}
+          />
+        </div>
+      </header>
+
+      {!session ? (
+        <SessionMenu />
+      ) : (
+        <SessionView key={session.id} sessionId={session.id} />
+      )}
+
+      {session && <ChatBubble />}
+    </div>
+  );
+}
+
+// ================== SessionView ==================
+function SessionView({ sessionId }: { sessionId: string }) {
+  const { t } = useTranslation();
+  const session = useAppStore((s) => s.sessions[sessionId]);
+  const activeTab = useAppStore((s) => s.sessions[sessionId]?.activeTab ?? 'transcripcion');
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const whisperModel = useAppStore((s) => s.sessions[sessionId]?.whisperModel ?? 'small');
+  const whisperAvailable = useAppStore((s) => s.whisperAvailable);
+  const backendReady = useAppStore((s) => s.backendReady);
+  const isTranscribing = useAppStore((s) => !!s.sessions[sessionId]?.isTranscribing);
+  const isRecording = useAppStore((s) => !!s.sessions[sessionId]?.isRecording);
+  const progressMsg = useAppStore((s) => s.sessions[sessionId]?.progressMsg ?? '');
+  const transcriptionError = useAppStore((s) => s.sessions[sessionId]?.transcriptionError ?? null);
+  const transcription = useAppStore((s) => s.sessions[sessionId]?.transcription ?? null);
+  const audioBlob = useAppStore((s) => s.sessions[sessionId]?.audioBlob ?? null);
+  const audioFileName = useAppStore((s) => s.sessions[sessionId]?.audioFileName ?? null);
+  const audioDuration = useAppStore((s) => s.sessions[sessionId]?.audioDuration ?? 0);
+
+  // setters
+  const setWhisperModel = useAppStore((s) => s.setWhisperModel);
+  const setIsTranscribing = useAppStore((s) => s.setIsTranscribing);
+  const setTranscriptionError = useAppStore((s) => s.setTranscriptionError);
+  const setProgressMsg = useAppStore((s) => s.setProgressMsg);
+  const setTranscription = useAppStore((s) => s.setTranscription);
+  const setCurrentSession = useAppStore((s) => s.setCurrentSession);
+  const setChatBubbleOpen = useAppStore((s) => s.setChatBubbleOpen);
+  const chatBubbleOpen = useAppStore((s) => s.chatBubbleOpen);
+
+  if (!session) return null;
 
   async function handleTranscribe() {
     if (!audioBlob) return;
@@ -127,6 +194,7 @@ export default function App() {
     if (!transcription) return;
     const lines = [
       `Meet Ninja - Transcripcion`,
+      `Sesion: ${session.name}`,
       `Archivo: ${audioFileName || 'audio'}`,
       `Modelo: ${transcription.model}`,
       `Idioma: ${transcription.language} (${(transcription.language_probability * 100).toFixed(0)}%)`,
@@ -134,13 +202,13 @@ export default function App() {
       '',
       ...transcription.segments.map((s) => `[${formatTs(s.start)}] ${s.text}`),
     ];
-    downloadText(lines.join('\n'), 'transcripcion.txt', 'text/plain;charset=utf-8');
+    downloadText(lines.join('\n'), `${safeName(session.name)}-transcripcion.txt`, 'text/plain;charset=utf-8');
   }
 
   function exportTranscriptMd() {
     if (!transcription) return;
     const lines = [
-      `# Transcripcion`,
+      `# Transcripcion - ${session.name}`,
       `- Archivo: ${audioFileName || 'audio'}`,
       `- Modelo: ${transcription.model}`,
       `- Idioma: ${transcription.language} (${(transcription.language_probability * 100).toFixed(0)}%)`,
@@ -148,143 +216,144 @@ export default function App() {
       '',
       ...transcription.segments.map((s) => `**[${formatTs(s.start)}]** ${s.text}`),
     ];
-    downloadText(lines.join('\n'), 'transcripcion.md', 'text/markdown;charset=utf-8');
+    downloadText(lines.join('\n'), `${safeName(session.name)}-transcripcion.md`, 'text/markdown;charset=utf-8');
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="brand">
-          <span className="brand-mark">🥷</span>
-          <span className="brand-name">Meet Ninja</span>
-          {version && <span className="brand-version">v{version}</span>}
-        </div>
-        <div className="header-status">
-          <LanguageSelector />
-          <BackendStatus
-            ready={backendReady}
-            error={backendError}
-            ollamaAvailable={ollamaAvailable}
-            ollamaModel={ollamaModel}
-            ollamaMaxModelB={ollamaMaxModelB}
-          />
-          <button className="btn btn-ghost btn-sm" onClick={reset} type="button">
-            {t('header.newSession')}
-          </button>
-        </div>
-      </header>
-
-      <div className="app-body">
-        <aside className="sidebar">
-          <section className="card">
-            <h3 className="card-title">{t('card.1.audio')}</h3>
-            <Recorder />
-            <div className="or-sep">o arrastra un archivo</div>
-            <FileDrop />
-            {audioBlob && (
-              <div className="audio-summary">
-                <div>
-                  <strong>{audioFileName}</strong>
-                </div>
-                <div className="muted">
-                  {humanSize(audioBlob.size)}
-                  {audioDuration > 0 && ` · ${audioDuration.toFixed(1)}s`}
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="card">
-            <h3 className="card-title">{t('card.2.transcribe')}</h3>
-            <div className="transcribe-controls">
-              <label className="field">
-                <span>{t('transcribe.model')}</span>
-                <select value={whisperModel} onChange={(e) => setWhisperModel(e.target.value)}>
-                  {whisperAvailable.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <small className="muted">
-                  {t('transcribe.modelHint')}
-                </small>
-              </label>
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={handleTranscribe}
-                disabled={!audioBlob || isTranscribing || isRecording || !backendReady}
-                type="button"
-              >
-                {isTranscribing ? t('transcribe.progress', { msg: progressMsg }) : t('transcribe.btn')}
-              </button>
-              {transcriptionError && <div className="alert alert-error">{transcriptionError}</div>}
-            </div>
-          </section>
-
-          {transcription && (
-            <section className="card">
-              <h3 className="card-title">{t('card.3.search')}</h3>
-              <SearchPanel />
-            </section>
-          )}
-
-          {transcription && (
-            <section className="card">
-              <h3 className="card-title">{t('card.4.chat')}</h3>
-              <ChatPanel />
-            </section>
-          )}
-
-          {transcription && (
-            <section className="card">
-              <h3 className="card-title">{t('card.5.translate')}</h3>
-              <TranslatePanel />
-            </section>
-          )}
-
-          {transcription && (
-            <section className="card">
-              <h3 className="card-title">{t('card.6.export')}</h3>
-              <div className="export-buttons">
-                <button className="btn btn-ghost" onClick={exportTranscriptTxt} type="button">
-                  {t('export.txt')}
-                </button>
-                <button className="btn btn-ghost" onClick={exportTranscriptMd} type="button">
-                  {t('export.md')}
-                </button>
-              </div>
-              <p className="hint">{t('export.hint')}</p>
-            </section>
-          )}
-        </aside>
-
-        <main className="main-pane">
-          <nav className="tabs">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                className={`tab ${activeTab === tab.id ? 'is-active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-                type="button"
-                disabled={!transcription && tab.id !== 'transcripcion'}
-              >
-                <span className="tab-icon">{tab.icon}</span>
-                {t(tab.key)}
-              </button>
-            ))}
-          </nav>
-
-          <div className="tab-content">
-            {activeTab === 'transcripcion' && <TranscriptionView />}
-            {activeTab === 'reunion' && <ModePanel mode="reunion" />}
-            {activeTab === 'estudio' && <ModePanel mode="estudio" />}
-            {activeTab === 'conversacion' && <ModePanel mode="conversacion" />}
+    <div className="app-body">
+      <aside className="sidebar">
+        <section className="card session-context-card">
+          <div className="session-context-row">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setCurrentSession('')}
+              title={t('header.goMenu')}
+            >
+              ← {t('header.sessions')}
+            </button>
+            <h3 className="card-title session-context-name" title={session.name}>
+              {session.name}
+            </h3>
           </div>
-        </main>
-      </div>
+          <h3 className="card-title">{t('card.1.audio')}</h3>
+          <Recorder />
+          <div className="or-sep">o arrastra un archivo</div>
+          <FileDrop />
+          {audioBlob && (
+            <div className="audio-summary">
+              <div>
+                <strong>{audioFileName}</strong>
+              </div>
+              <div className="muted">
+                {humanSize(audioBlob.size)}
+                {audioDuration > 0 && ` · ${audioDuration.toFixed(1)}s`}
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="card">
+          <h3 className="card-title">{t('card.2.transcribe')}</h3>
+          <div className="transcribe-controls">
+            <label className="field">
+              <span>{t('transcribe.model')}</span>
+              <select value={whisperModel} onChange={(e) => setWhisperModel(e.target.value)}>
+                {whisperAvailable.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <small className="muted">
+                {t('transcribe.modelHint')}
+              </small>
+            </label>
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={handleTranscribe}
+              disabled={!audioBlob || isTranscribing || isRecording || !backendReady}
+              type="button"
+            >
+              {isTranscribing ? t('transcribe.progress', { msg: progressMsg }) : t('transcribe.btn')}
+            </button>
+            {transcriptionError && <div className="alert alert-error">{transcriptionError}</div>}
+          </div>
+        </section>
+
+        {transcription && (
+          <section className="card">
+            <h3 className="card-title">{t('card.5.translate')}</h3>
+            <TranslatePanel />
+          </section>
+        )}
+
+        {transcription && (
+          <section className="card">
+            <h3 className="card-title">{t('card.6.export')}</h3>
+            <div className="export-buttons">
+              <button className="btn btn-ghost" onClick={exportTranscriptTxt} type="button">
+                {t('export.txt')}
+              </button>
+              <button className="btn btn-ghost" onClick={exportTranscriptMd} type="button">
+                {t('export.md')}
+              </button>
+            </div>
+            <p className="hint">{t('export.hint')}</p>
+          </section>
+        )}
+      </aside>
+
+      <main className="main-pane">
+        <nav className="tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              className={`tab ${activeTab === tab.id ? 'is-active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+              type="button"
+              disabled={!transcription && tab.id !== 'transcripcion'}
+            >
+              <span className="tab-icon">{tab.icon}</span>
+              {t(tab.key)}
+            </button>
+          ))}
+          {transcription && (
+            <button
+              type="button"
+              className={'tab tab-bubble-tab' + (chatBubbleOpen ? ' is-active' : '')}
+              onClick={() => setChatBubbleOpen(!chatBubbleOpen)}
+              title={t('bubble.open')}
+            >
+              <span className="tab-icon">💬</span>
+              {t('bubble.shortTitle')}
+              {session.chatMessages.length > 0 && (
+                <span className="tab-badge">{session.chatMessages.length}</span>
+              )}
+            </button>
+          )}
+        </nav>
+
+        <div className="tab-content">
+          {activeTab === 'transcripcion' && <TranscriptionView />}
+          {activeTab === 'reunion' && <ModePanel mode="reunion" />}
+          {activeTab === 'estudio' && <ModePanel mode="estudio" />}
+          {activeTab === 'conversacion' && <ModePanel mode="conversacion" />}
+        </div>
+      </main>
     </div>
   );
+}
+
+// ================== helpers ==================
+function safeName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 60) || 'sesion';
+}
+
+function formatTs(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 function BackendStatus({
@@ -321,12 +390,6 @@ function BackendStatus({
       </span>
     </div>
   );
-}
-
-function formatTs(s: number): string {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 function LanguageSelector() {

@@ -6,12 +6,13 @@
  * - Soporta navegacion de matches con flechas.
  */
 import { useEffect, useRef } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useCurrentSession } from '../store/useAppStore';
 import { formatTime } from '../lib/format';
 
 export function TranscriptionView() {
-  const transcription = useAppStore((s) => s.transcription);
-  const search = useAppStore((s) => s.search);
+  const session = useCurrentSession();
+  const transcription = session?.transcription ?? null;
+  const search = session?.search ?? { terms: '', parsedTerms: [], mode: 'any' as const, results: [], loading: false, error: null, activeMatchIdx: 0 };
   const setActiveMatch = useAppStore((s) => s.setActiveMatch);
   const activeMatchIdx = search.activeMatchIdx;
 

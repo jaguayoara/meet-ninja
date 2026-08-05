@@ -9,16 +9,17 @@
  * explicitas de no usar conocimiento externo.
  */
 import { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useCurrentSession } from '../store/useAppStore';
 import { chat } from '../lib/api';
 import { useTranslation } from '../i18n/useTranslation';
 
 export function ChatPanel() {
   const { t } = useTranslation();
-  const transcription = useAppStore((s) => s.transcription);
-  const messages = useAppStore((s) => s.chatMessages);
-  const loading = useAppStore((s) => s.chatLoading);
-  const error = useAppStore((s) => s.chatError);
+  const session = useCurrentSession();
+  const transcription = session?.transcription ?? null;
+  const messages = session?.chatMessages ?? [];
+  const loading = session?.chatLoading ?? false;
+  const error = session?.chatError ?? null;
   const addMessage = useAppStore((s) => s.addChatMessage);
   const clearChat = useAppStore((s) => s.clearChat);
   const setLoading = useAppStore((s) => s.setChatLoading);

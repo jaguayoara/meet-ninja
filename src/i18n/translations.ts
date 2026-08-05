@@ -176,6 +176,33 @@ const es: Dict = {
 
   // language
   'lang.label': 'Idioma de la UI',
+
+  // session menu
+  'sessionMenu.title': 'Tus sesiones',
+  'sessionMenu.subtitle': 'Cada sesion guarda su audio, transcripcion, busqueda y chat por separado. Podes tener varias abiertas a la vez.',
+  'sessionMenu.newSession': 'Nueva sesion',
+  'sessionMenu.emptyState': 'Aun no tenes sesiones. Crea la primera para empezar.',
+  'sessionMenu.rename': 'Renombrar',
+  'sessionMenu.delete': 'Borrar',
+  'sessionMenu.confirmDelete': '¿Borrar la sesion "{name}"? Esta accion no se puede deshacer.',
+  'sessionMenu.transcribed': 'Transcrita',
+  'sessionMenu.pendingTranscribe': 'Pendiente de transcribir',
+  'sessionMenu.audioMissing': 'Audio no disponible (no se persiste entre sesiones)',
+  'sessionMenu.empty': 'Sesion vacia',
+  'sessionMenu.segments': 'segmentos',
+  'sessionMenu.words': 'palabras',
+
+  // chat bubble
+  'bubble.title': 'Buscar y conversar',
+  'bubble.shortTitle': 'Chat',
+  'bubble.open': 'Abrir chat',
+  'bubble.minimize': 'Minimizar',
+  'bubble.tabSearch': 'Buscar',
+  'bubble.tabChat': 'Conversar',
+
+  // header
+  'header.goMenu': 'Volver al menu de sesiones',
+  'header.sessions': 'Sesiones',
 };
 
 const en: Dict = {
@@ -292,6 +319,33 @@ const en: Dict = {
   'mode.modelo': 'Model',
 
   'lang.label': 'UI language',
+
+  // session menu
+  'sessionMenu.title': 'Your sessions',
+  'sessionMenu.subtitle': 'Each session keeps its own audio, transcript, search and chat. You can have several open at the same time.',
+  'sessionMenu.newSession': 'New session',
+  'sessionMenu.emptyState': "You don't have any sessions yet. Create the first one to get started.",
+  'sessionMenu.rename': 'Rename',
+  'sessionMenu.delete': 'Delete',
+  'sessionMenu.confirmDelete': 'Delete session "{name}"? This cannot be undone.',
+  'sessionMenu.transcribed': 'Transcribed',
+  'sessionMenu.pendingTranscribe': 'Pending transcription',
+  'sessionMenu.audioMissing': 'Audio not available (not persisted between sessions)',
+  'sessionMenu.empty': 'Empty session',
+  'sessionMenu.segments': 'segments',
+  'sessionMenu.words': 'words',
+
+  // chat bubble
+  'bubble.title': 'Search and chat',
+  'bubble.shortTitle': 'Chat',
+  'bubble.open': 'Open chat',
+  'bubble.minimize': 'Minimize',
+  'bubble.tabSearch': 'Search',
+  'bubble.tabChat': 'Chat',
+
+  // header
+  'header.goMenu': 'Back to sessions',
+  'header.sessions': 'Sessions',
 };
 
 const pt: Dict = {
@@ -408,6 +462,33 @@ const pt: Dict = {
   'mode.modelo': 'Modelo',
 
   'lang.label': 'Idioma da interface',
+
+  // session menu
+  'sessionMenu.title': 'Suas sessoes',
+  'sessionMenu.subtitle': 'Cada sessao guarda seu audio, transcricao, busca e chat separados. Voce pode ter varias abertas ao mesmo tempo.',
+  'sessionMenu.newSession': 'Nova sessao',
+  'sessionMenu.emptyState': 'Voce ainda nao tem sessoes. Crie a primeira para comecar.',
+  'sessionMenu.rename': 'Renomear',
+  'sessionMenu.delete': 'Excluir',
+  'sessionMenu.confirmDelete': 'Excluir a sessao "{name}"? Esta acao nao pode ser desfeita.',
+  'sessionMenu.transcribed': 'Transcrita',
+  'sessionMenu.pendingTranscribe': 'Pendente de transcrever',
+  'sessionMenu.audioMissing': 'Audio nao disponivel (nao persiste entre sessoes)',
+  'sessionMenu.empty': 'Sessao vazia',
+  'sessionMenu.segments': 'segmentos',
+  'sessionMenu.words': 'palavras',
+
+  // chat bubble
+  'bubble.title': 'Buscar e conversar',
+  'bubble.shortTitle': 'Chat',
+  'bubble.open': 'Abrir chat',
+  'bubble.minimize': 'Minimizar',
+  'bubble.tabSearch': 'Buscar',
+  'bubble.tabChat': 'Conversar',
+
+  // header
+  'header.goMenu': 'Voltar ao menu de sessoes',
+  'header.sessions': 'Sessoes',
 };
 
 const dicts: Record<Lang, Dict> = { es, en, pt };

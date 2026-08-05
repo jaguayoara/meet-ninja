@@ -2,14 +2,16 @@
  * Zona de drop de archivos de audio. Drag & drop o click.
  */
 import { useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useCurrentSession } from '../store/useAppStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 const ACCEPTED = ['wav', 'mp3', 'm4a', 'ogg', 'flac', 'webm', 'aac', 'mp4'];
 
 export function FileDrop() {
+  const { t } = useTranslation();
   const setAudio = useAppStore((s) => s.setAudio);
-  const audioFileName = useAppStore((s) => s.audioFileName);
-  const reset = useAppStore((s) => s.reset);
+  const session = useCurrentSession();
+  const audioFileName = session?.audioFileName ?? null;
   const [hover, setHover] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +20,7 @@ export function FileDrop() {
     const f = files[0];
     const ext = (f.name.split('.').pop() || '').toLowerCase();
     if (!ACCEPTED.includes(ext)) {
-      setError(`Formato no soportado: .${ext}`);
+      setError(t('drop.invalid', { ext }) as string);
       return;
     }
     setError(null);
@@ -48,16 +50,20 @@ export function FileDrop() {
             style={{ display: 'none' }}
           />
           <div className="drop-icon">🎙️</div>
-          <div className="drop-title">Arrastra un audio aqui</div>
-          <div className="drop-sub">o haz clic para seleccionar</div>
+          <div className="drop-title">{t('drop.title')}</div>
+          <div className="drop-sub">{t('drop.sub')}</div>
         </label>
       ) : (
         <div className="drop-loaded">
           <div className="drop-loaded-name" title={audioFileName}>
             {audioFileName}
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={reset} type="button">
-            Quitar
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setAudio(null, null)}
+            type="button"
+          >
+            {t('drop.remove')}
           </button>
         </div>
       )}

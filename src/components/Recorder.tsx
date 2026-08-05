@@ -18,7 +18,7 @@
  * para obtener el MediaStream real.
  */
 import { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useCurrentSession } from '../store/useAppStore';
 import { formatTime } from '../lib/format';
 import { useTranslation } from '../i18n/useTranslation';
 
@@ -32,7 +32,8 @@ export function Recorder() {
   const { t } = useTranslation();
   const setAudio = useAppStore((s) => s.setAudio);
   const setRecording = useAppStore((s) => s.setRecording);
-  const isRecording = useAppStore((s) => s.isRecording);
+  const session = useCurrentSession();
+  const isRecording = session?.isRecording ?? false;
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
