@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { useAppStore, type Session } from '../store/useAppStore';
 import { useTranslation } from '../i18n/useTranslation';
 import { humanSize } from '../lib/format';
+import { NewSessionDialog } from './NewSessionDialog';
 
 function formatDate(ts: number, lang: 'es' | 'en' | 'pt'): string {
   try {
@@ -174,9 +175,22 @@ export function SessionMenu() {
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const renameSession = useAppStore((s) => s.renameSession);
 
+  const [showNewDialog, setShowNewDialog] = useState(false);
+
   const list = sessionOrder
     .map((id) => sessions[id])
     .filter((s): s is Session => !!s);
+
+  // Sugerir un nombre por defecto: "Nueva sesion" + fecha corta.
+  // Si ya existe, le agrega un sufijo numerico.
+  function suggestDefaultName(): string {
+    const base = 'Nueva sesion';
+    const used = new Set(list.map((s) => s.name));
+    if (!used.has(base)) return base;
+    let i = 2;
+    while (used.has(`${base} ${i}`)) i++;
+    return `${base} ${i}`;
+  }
 
   return (
     <div className="session-menu">
@@ -189,7 +203,7 @@ export function SessionMenu() {
         <button
           type="button"
           className="btn btn-primary btn-lg session-new-btn"
-          onClick={() => createSession()}
+          onClick={() => setShowNewDialog(true)}
         >
           ＋ {t('sessionMenu.newSession')}
         </button>
@@ -212,6 +226,17 @@ export function SessionMenu() {
           ))}
         </div>
       )}
+
+      <NewSessionDialog
+        open={showNewDialog}
+        defaultName={suggestDefaultName()}
+        onCancel={() => setShowNewDialog(false)}
+        onConfirm={(name) => {
+          setShowNewDialog(false);
+          const id = createSession(name);
+          setCurrentSession(id);
+        }}
+      />
     </div>
   );
 }
