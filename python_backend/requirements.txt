@@ -1,5 +1,5 @@
 # Backend Python para Meet Ninja
-# Maneja: transcripcion (faster-whisper), resumen (ollama + extractivo), busqueda.
+# Maneja: transcripcion (faster-whisper), resumen (LLM local + ollama + extractivo), busqueda.
 # Todo corre local en el mismo PC que la app Electron.
 
 fastapi==0.115.0
@@ -10,10 +10,15 @@ pydantic==2.9.2
 # Transcripcion (ya esta instalado en el sistema, lo dejamos como dependencia
 # para que el venv este autocontenido y empaquetable).
 faster-whisper==1.0.3
-# huggingface_hub necesita requests para descargar el modelo
+# huggingface_hub necesita requests para descargar el modelo whisper
 requests==2.32.3
+huggingface-hub==0.26.2
 
-# Resumen / LLM local opcional via Ollama
+# El LLM local embebido NO requiere Python deps adicionales: usa el binario
+# de llama.cpp (descargado automaticamente la primera vez) y huggingface_hub
+# para bajar el modelo GGUF.
+
+# Resumen / LLM remoto opcional via Ollama (si el usuario lo tiene instalado)
 httpx==0.27.2
 
 # Busqueda y resumen extractivo (sin LLM, funciona siempre)

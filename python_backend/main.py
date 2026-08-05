@@ -123,6 +123,7 @@ async def health():
             "default_model": DEFAULT_MODEL,
             "available_models": list(VALID_MODELS),
         },
+        "llm_local": _llm_local_status(),
         "ollama": {
             "available": ollama_ok,
             "url": OLLAMA_URL,
@@ -133,6 +134,15 @@ async def health():
         "ffmpeg": _which("ffmpeg"),
         "python": sys.version.split()[0],
     }
+
+
+def _llm_local_status() -> dict:
+    """Status del LLM local embebido (no rompe si el modulo no esta)."""
+    try:
+        from llm_local import status
+        return status()
+    except Exception as e:
+        return {"enabled": False, "error": str(e)[:200]}
 
 
 @app.get("/models")

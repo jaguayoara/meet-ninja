@@ -12,6 +12,7 @@ por frecuencia). Asi la app siempre devuelve algo util.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -510,8 +511,12 @@ def _parse_llm_json(raw: str) -> Optional[dict]:
 async def summarize(transcript: str, mode: str) -> dict:
     """
     Resume `transcript` en el modo pedido.
-    Intenta ollama primero; si falla (no esta, no responde, JSON invalido),
-    cae a resumen extractivo.
+
+    Orden de prioridad:
+    1. LLM local embebido (llama.cpp + GGUF). Si esta disponible y responde,
+       se usa esto. No requiere servicios externos.
+    2. Ollama (opcional, si el usuario lo tiene instalado y la red esta ok).
+    3. Resumen extractivo (sin LLM). Siempre funciona, menor calidad.
     """
     if mode not in PROMPTS:
         raise ValueError(f"Modo invalido: {mode}. Validos: {list(PROMPTS)}")
@@ -520,6 +525,33 @@ async def summarize(transcript: str, mode: str) -> dict:
         raise ValueError("Transcripcion vacia")
 
     prompt = PROMPTS[mode].format(transcript=transcript[:12000])  # limite de contexto
+    warning: str | None = None
+
+    # 1) LLM local embebido (preferido, no requiere nada externo)
+    try:
+        from llm_local import get_llm, is_available
+        if is_available() or os.environ.get("MEETNINJA_LLM_AUTO_DOWNLOAD", "1") == "1":
+            llm = get_llm()
+            log.info("Probando LLM local embebido...")
+            try:
+                raw = await asyncio.to_thread(llm.generate, prompt, max_tokens=1024, temperature=0.2, timeout=180)
+                parsed = _parse_llm_json(raw) if raw else None
+                if parsed:
+                    from llm_local import MODEL_REPO, MODEL_FILE
+                    parsed["_metodo"] = "llm_local"
+                    parsed["_modelo"] = f"{MODEL_REPO}/{MODEL_FILE}"
+                    parsed["_modelo_b"] = _parse_model_size_b(MODEL_FILE)
+                    if warning:
+                        parsed["_warning"] = warning
+                    return parsed
+                log.info("LLM local devolvio algo no parseable, probando ollama...")
+            except Exception as e:
+                log.warning("LLM local fallo: %s", e)
+    except ImportError:
+        # modulo no disponible, seguir con ollama/extractivo
+        pass
+
+    # 2) Ollama (opcional)
     raw, model_used, warning = await _ollama_generate(prompt)
     parsed = _parse_llm_json(raw) if raw else None
     if parsed:

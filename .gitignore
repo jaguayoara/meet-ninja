@@ -16,6 +16,8 @@ python_backend/.venv/
 python_backend/venv/
 # modelos whisper descargados
 python_backend/models/
+# binarios de llama.cpp descargados (se bajan solos en el primer uso)
+python_backend/bin/
 python_backend/*.pyc
 python_backend/*.pyo
 
