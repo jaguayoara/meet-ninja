@@ -79,6 +79,12 @@ const es: Dict = {
   'recorder.sourceBoth': 'Ambos',
   'recorder.shareScreenHint': 'Al grabar, el sistema te pedira compartir pantalla. Tilda "Compartir audio de la pestana" o elegi la ventana/pantalla que tenga el audio que queres capturar.',
   'recorder.systemNoAudio': 'No se detecto pista de audio del sistema. Volve a intentar y tilda la opcion de compartir audio.',
+  'recorder.electronOnly': 'La captura de audio del sistema solo funciona dentro de la app de Electron.',
+  'recorder.noSources': 'No se encontraron ventanas ni pantallas para capturar.',
+  'recorder.cancelled': 'Captura cancelada.',
+  'recorder.pickSource': 'Elegi la fuente de audio',
+  'recorder.pickSourceHint': 'Elegi la ventana o pantalla que tiene el audio que queres capturar.',
+  'recorder.cancel': 'Cancelar',
 
   // file drop
   'drop.title': 'Arrastra un audio aqui',
@@ -197,6 +203,12 @@ const en: Dict = {
   'recorder.sourceBoth': 'Both',
   'recorder.shareScreenHint': 'When recording, the system will ask you to share a screen. Tick "Share tab audio" or pick the window/screen that has the audio you want to capture.',
   'recorder.systemNoAudio': 'No system audio track was found. Please try again and tick the option to share audio.',
+  'recorder.electronOnly': 'System audio capture only works inside the Electron app.',
+  'recorder.noSources': 'No windows or screens were found to capture.',
+  'recorder.cancelled': 'Capture cancelled.',
+  'recorder.pickSource': 'Pick an audio source',
+  'recorder.pickSourceHint': 'Pick the window or screen that has the audio you want to capture.',
+  'recorder.cancel': 'Cancel',
 
   'drop.title': 'Drag audio here',
   'drop.sub': 'or click to select',
@@ -305,6 +317,12 @@ const pt: Dict = {
   'recorder.sourceBoth': 'Ambos',
   'recorder.shareScreenHint': 'Ao gravar, o sistema pedira para compartilhar tela. Marque "Compartilhar audio da aba" ou escolha a janela/tela com o audio que voce quer capturar.',
   'recorder.systemNoAudio': 'Nenhuma faixa de audio do sistema foi encontrada. Tente novamente e marque a opcao de compartilhar audio.',
+  'recorder.electronOnly': 'A captura de audio do sistema so funciona dentro do app Electron.',
+  'recorder.noSources': 'Nenhuma janela ou tela foi encontrada para capturar.',
+  'recorder.cancelled': 'Captura cancelada.',
+  'recorder.pickSource': 'Escolha a fonte de audio',
+  'recorder.pickSourceHint': 'Escolha a janela ou tela que tem o audio que voce quer capturar.',
+  'recorder.cancel': 'Cancelar',
 
   'drop.title': 'Arraste um audio aqui',
   'drop.sub': 'ou clique para selecionar',

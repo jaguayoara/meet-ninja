@@ -17,6 +17,9 @@ const api = {
     ipcRenderer.invoke('dialog:save-file', defaultName),
   showInFolder: (p: string): Promise<unknown> => ipcRenderer.invoke('shell:show-in-folder', p),
 
+  getDesktopSources: (): Promise<{ id: string; name: string }[]> =>
+    ipcRenderer.invoke('desktop-capturer:get-sources'),
+
   onMenuOpenAudio: (cb: () => void): (() => void) => {
     const fn = () => cb();
     ipcRenderer.on('menu:open-audio', fn);

@@ -3,11 +3,16 @@
  *
  * Soporta 3 fuentes:
  *   - 'mic'    : solo microfono (getUserMedia)
- *   - 'system' : solo audio del sistema (getDisplayMedia, descarta video)
+ *   - 'system' : solo audio del sistema (desktopCapturer + chromeMediaSource)
  *   - 'both'   : microfono + audio del sistema mezclados via Web Audio API
  *
  * La grabacion se guarda como Blob (webm/opus) y se manda al backend.
  * Si el usuario quiere, puede cargar un archivo en vez de grabar.
+ *
+ * NOTA: en Electron, getDisplayMedia NO esta disponible. Hay que usar
+ * `desktopCapturer` del main process para listar fuentes, y luego
+ * `navigator.mediaDevices.getUserMedia` con `chromeMediaSource: 'desktop'`
+ * para obtener el MediaStream real.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
@@ -36,6 +41,9 @@ export function Recorder() {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Source>('mic');
+  // Picker de fuente: aparece cuando hay varias opciones de screen/window.
+  const [picker, setPicker] = useState<{ id: string; name: string }[] | null>(null);
+  const pickerResolveRef = useRef<((id: string | null) => void) | null>(null);
 
   useEffect(() => {
     return () => stopAll();
@@ -74,6 +82,68 @@ export function Recorder() {
     }
   }
 
+  /**
+   * Pide al usuario elegir una fuente de sistema (screen o window).
+   * Auto-elige si solo hay una. Devuelve sourceId o null si cancela.
+   */
+  async function pickSourceId(): Promise<string | null> {
+    if (!window.meetninja?.getDesktopSources) {
+      throw new Error(t('recorder.electronOnly'));
+    }
+    const sources = await window.meetninja.getDesktopSources();
+    if (sources.length === 0) {
+      throw new Error(t('recorder.noSources'));
+    }
+    if (sources.length === 1) return sources[0].id;
+    return new Promise<string | null>((resolve) => {
+      pickerResolveRef.current = resolve;
+      setPicker(sources);
+    });
+  }
+
+  function resolvePicker(id: string | null) {
+    const fn = pickerResolveRef.current;
+    pickerResolveRef.current = null;
+    setPicker(null);
+    if (fn) fn(id);
+  }
+
+  /**
+   * Abre un stream de audio del sistema via Electron desktopCapturer
+   * (NO getDisplayMedia, que no funciona dentro de Electron).
+   */
+  async function openSystemStream(): Promise<MediaStream> {
+    const sourceId = await pickSourceId();
+    if (!sourceId) throw new Error(t('recorder.cancelled'));
+
+    // En Electron, getUserMedia con chromeMediaSource: 'desktop' +
+    // chromeMediaSourceId devuelve el stream de la fuente elegida.
+    // Pedimos audio + video obligatorio y descartamos el video.
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: sourceId,
+        },
+      } as MediaTrackConstraints,
+      video: {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: sourceId,
+          maxWidth: 1,
+          maxHeight: 1,
+        },
+      } as MediaTrackConstraints,
+    });
+    const videoTracks = stream.getVideoTracks();
+    videoTracks.forEach((t) => t.stop());
+    stream.removeTrack(videoTracks[0]);
+    if (stream.getAudioTracks().length === 0) {
+      throw new Error(t('recorder.systemNoAudio'));
+    }
+    return stream;
+  }
+
   async function getStream(src: Source): Promise<MediaStream> {
     if (src === 'mic') {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -82,18 +152,7 @@ export function Recorder() {
     }
 
     if (src === 'system') {
-      // getDisplayMedia requiere video:true; descartamos la pista de video.
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
-      const videoTracks = stream.getVideoTracks();
-      videoTracks.forEach((t) => t.stop());
-      stream.removeTrack(videoTracks[0]);
-      // Si el usuario no tildo "compartir audio", no hay pista de audio.
-      if (stream.getAudioTracks().length === 0) {
-        throw new Error(t('recorder.systemNoAudio'));
-      }
+      const stream = await openSystemStream();
       systemStreamRef.current = stream;
       return stream;
     }
@@ -103,20 +162,7 @@ export function Recorder() {
     micStreamRef.current = mic;
     let sys: MediaStream;
     try {
-      const display = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
-      const videoTracks = display.getVideoTracks();
-      videoTracks.forEach((t) => t.stop());
-      display.removeTrack(videoTracks[0]);
-      if (display.getAudioTracks().length === 0) {
-        // Liberar el mic que ya pedimos si no hay audio del sistema.
-        mic.getTracks().forEach((t) => t.stop());
-        micStreamRef.current = null;
-        throw new Error(t('recorder.systemNoAudio'));
-      }
-      sys = display;
+      sys = await openSystemStream();
       systemStreamRef.current = sys;
     } catch (e) {
       // Si falla el system audio, liberar el mic antes de propagar el error.
@@ -190,7 +236,6 @@ export function Recorder() {
     }
     const path = await window.meetninja.openAudioDialog();
     if (!path) return;
-    // El main process lee el archivo y devuelve base64.
     if (window.meetninja) {
       try {
         const data = await window.meetninja.readAudioFile(path);
@@ -262,6 +307,33 @@ export function Recorder() {
       )}
       {error && <div className="alert alert-error">{error}</div>}
       <p className="recorder-hint">{t('recorder.hint')}</p>
+
+      {picker && (
+        <div className="picker-backdrop" onClick={() => resolvePicker(null)}>
+          <div className="picker" onClick={(e) => e.stopPropagation()}>
+            <h3 className="picker-title">{t('recorder.pickSource')}</h3>
+            <p className="picker-hint">{t('recorder.pickSourceHint')}</p>
+            <ul className="picker-list">
+              {picker.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className="picker-item"
+                    onClick={() => resolvePicker(s.id)}
+                  >
+                    {s.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="picker-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => resolvePicker(null)}>
+                {t('recorder.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

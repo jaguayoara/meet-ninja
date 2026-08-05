@@ -8,7 +8,7 @@
  *  - Auto-update desde GitHub Releases (electron-updater).
  *  - Menu nativo y atajos basicos.
  */
-import { app, BrowserWindow, ipcMain, dialog, shell, Menu, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu, desktopCapturer, type MenuItemConstructorOptions } from 'electron';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, dirname, resolve } from 'node:path';
@@ -230,6 +230,21 @@ function setupIpc(): void {
 
   ipcMain.handle('shell:show-in-folder', (_e, p: string) => {
     shell.showItemInFolder(p);
+  });
+
+  ipcMain.handle('desktop-capturer:get-sources', async () => {
+    /**
+     * Devuelve las fuentes disponibles para capturar audio del sistema
+     * en Electron. Usamos desktopCapturer (no getDisplayMedia, que no
+     * esta disponible dentro de Electron renderer).
+     * El renderer usa luego getUserMedia con chromeMediaSource: 'desktop'
+     * + chromeMediaSourceId para obtener el stream real.
+     */
+    const sources = await desktopCapturer.getSources({
+      types: ['window', 'screen'],
+      thumbnailSize: { width: 0, height: 0 },
+    });
+    return sources.map((s) => ({ id: s.id, name: s.name }));
   });
 }
 
