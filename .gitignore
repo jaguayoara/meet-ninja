@@ -60,6 +60,7 @@ vite.config.d.ts
 *.tmp
 *.tmp.old
 *.tmp.bak
+.cleanup_*
 
 # Diag scripts
 scripts/diag_*.cjs
