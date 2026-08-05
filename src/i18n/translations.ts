@@ -191,6 +191,10 @@ const es: Dict = {
   'sessionMenu.empty': 'Sesion vacia',
   'sessionMenu.segments': 'segmentos',
   'sessionMenu.words': 'palabras',
+
+  // audio
+  'audio.saveAudio': 'Guardar audio',
+  'audio.saveAudioTitle': 'Descargar el audio a tu computadora para guardarlo o compartirlo',
   'sessionMenu.export': 'Exportar',
   'sessionMenu.exportTitle': 'Guardar la sesion completa (audio + transcripcion + chat) en un archivo .meetninja.json',
   'sessionMenu.import': 'Importar',
@@ -339,6 +343,10 @@ const en: Dict = {
   'sessionMenu.empty': 'Empty session',
   'sessionMenu.segments': 'segments',
   'sessionMenu.words': 'words',
+
+  // audio
+  'audio.saveAudio': 'Save audio',
+  'audio.saveAudioTitle': 'Download the audio to your computer to save it or share it',
   'sessionMenu.export': 'Export',
   'sessionMenu.exportTitle': 'Save the full session (audio + transcript + chat) to a .meetninja.json file',
   'sessionMenu.import': 'Import',
@@ -487,6 +495,10 @@ const pt: Dict = {
   'sessionMenu.empty': 'Sessao vazia',
   'sessionMenu.segments': 'segmentos',
   'sessionMenu.words': 'palavras',
+
+  // audio
+  'audio.saveAudio': 'Salvar audio',
+  'audio.saveAudioTitle': 'Baixar o audio para o seu computador para salvar ou compartilhar',
   'sessionMenu.export': 'Exportar',
   'sessionMenu.exportTitle': 'Salvar a sessao completa (audio + transcricao + chat) em um arquivo .meetninja.json',
   'sessionMenu.import': 'Importar',

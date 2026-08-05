@@ -222,15 +222,33 @@ function SessionView({ sessionId }: { sessionId: string }) {
     downloadText(lines.join('\n'), `${safeName(session.name)}-transcripcion.md`, 'text/markdown;charset=utf-8');
   }
 
-  async function handleExportSession() {
-    const data = await useAppStore.getState().exportCurrent();
-    if (!data) return;
-    const json = JSON.stringify(data, null, 2);
-    downloadText(
-      json,
-      `${safeName(session.name)}.meetninja.json`,
-      'application/json;charset=utf-8',
-    );
+  async function handleExportAudio() {
+    if (!audioBlob) return;
+    // Determinar extension segun el mime del blob.
+    const mime = audioBlob.type || 'audio/webm';
+    const ext =
+      mime.includes('webm') ? 'webm' :
+      mime.includes('ogg') ? 'ogg' :
+      mime.includes('wav') ? 'wav' :
+      mime.includes('mpeg') ? 'mp3' :
+      mime.includes('mp4') ? 'm4a' :
+      mime.includes('flac') ? 'flac' :
+      'webm';
+    // Si ya tenemos un nombre con extension, lo reusamos; si no, generamos uno.
+    const baseName = audioFileName
+      ? audioFileName.replace(/\.[^.]+$/, '')
+      : `grabacion-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    const fileName = `${safeName(baseName) || 'audio'}.${ext}`;
+    // Descargar via Blob URL (mas limpio para binarios que data URL).
+    const url = URL.createObjectURL(audioBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Liberar el object URL despues de un tick.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   return (
@@ -249,14 +267,6 @@ function SessionView({ sessionId }: { sessionId: string }) {
             <h3 className="card-title session-context-name" title={session.name}>
               {session.name}
             </h3>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={handleExportSession}
-              title={t('sessionMenu.exportTitle')}
-            >
-              ⤓ {t('sessionMenu.export')}
-            </button>
           </div>
           <h3 className="card-title">{t('card.1.audio')}</h3>
           <Recorder />
@@ -264,13 +274,23 @@ function SessionView({ sessionId }: { sessionId: string }) {
           <FileDrop />
           {audioBlob && (
             <div className="audio-summary">
-              <div>
-                <strong>{audioFileName}</strong>
+              <div className="audio-summary-info">
+                <div>
+                  <strong>{audioFileName}</strong>
+                </div>
+                <div className="muted">
+                  {humanSize(audioBlob.size)}
+                  {audioDuration > 0 && ` · ${audioDuration.toFixed(1)}s`}
+                </div>
               </div>
-              <div className="muted">
-                {humanSize(audioBlob.size)}
-                {audioDuration > 0 && ` · ${audioDuration.toFixed(1)}s`}
-              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={handleExportAudio}
+                title={t('audio.saveAudioTitle')}
+              >
+                ⤓ {t('audio.saveAudio')}
+              </button>
             </div>
           )}
         </section>

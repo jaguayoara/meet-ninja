@@ -396,6 +396,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setCurrentSession: (id) => {
     set((st) => {
+      // id vacio o null = volver al menu de sesiones
+      if (!id) {
+        saveToStorage(Object.values(st.sessions), null);
+        return { currentSessionId: null, chatBubbleOpen: false };
+      }
       if (!st.sessions[id]) return st;
       saveToStorage(Object.values(st.sessions), id);
       return { currentSessionId: id, chatBubbleOpen: false };
