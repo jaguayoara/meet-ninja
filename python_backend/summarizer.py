@@ -404,7 +404,9 @@ async def _ollama_generate(prompt: str) -> tuple[Optional[str], Optional[str], s
     Intenta generar con el modelo preferido; si no esta, prueba los FALLBACK_MODELS.
     Descarta modelos de embeddings (no son generativos).
     Si ninguno conocido responde, prueba el resto de modelos instalados en
-    orden de tamano (mas chico primero).
+    orden de tamano (mas GRANDE primero: prefiere el mas capaz que respete
+    el cap de MAX_MODEL_B; si todo es oversize, usa el mas chico como
+    ultimo recurso).
     Respeta MAX_MODEL_B: modelos mas grandes se evitan salvo ALLOW_OVERSIZE.
     Devuelve (respuesta, modelo_usado, warning) o (None, None, warning).
     """
@@ -447,11 +449,12 @@ async def _ollama_generate(prompt: str) -> tuple[Optional[str], Optional[str], s
     for m in FALLBACK_MODELS:
         if m in pool and m not in candidates:
             candidates.append(m)
-    # agregar el resto del pool, ordenados por tamano (chico primero)
+    # agregar el resto del pool, ordenados por tamano (GRANDE primero,
+    # para preferir el modelo mas capaz disponible que respete el cap)
     def size_key(n: str) -> float:
         s = _parse_model_size_b(n)
-        return s if s is not None else 999.0
-    for m in sorted(pool, key=size_key):
+        return s if s is not None else 0.0
+    for m in sorted(pool, key=size_key, reverse=True):
         if m not in candidates:
             candidates.append(m)
 

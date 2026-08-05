@@ -114,23 +114,37 @@ async def health():
     ollama_ok = await ollama_available()
     ollama_model = OLLAMA_MODEL
     if ollama_ok:
-        from summarizer import _ollama_list_models, _is_generative_model, FALLBACK_MODELS
+        from summarizer import (
+            _ollama_list_models,
+            _is_generative_model,
+            _is_oversize,
+            _parse_model_size_b,
+            FALLBACK_MODELS,
+        )
         installed = await _ollama_list_models()
         installed = {m for m in installed if _is_generative_model(m)}
         if installed:
             if OLLAMA_MODEL in installed:
                 ollama_model = OLLAMA_MODEL
             else:
-                chosen = next((m for m in FALLBACK_MODELS if m in installed), None)
+                # Misma logica que _ollama_generate: prioriza el MEJOR modelo
+                # disponible (mas grande dentro del cap; sino, FALLBACK_MODELS;
+                # sino el mas chico de los oversize como ultimo recurso).
+                in_cap = {m for m in installed if not _is_oversize(m)}
+                pool = in_cap if in_cap else installed
+                chosen = next((m for m in FALLBACK_MODELS if m in pool), None)
                 if chosen:
                     ollama_model = chosen
                 else:
-                    # el mas chico disponible
-                    import re
-                    def size_key(n: str) -> int:
-                        mm = re.search(r"(\d+(?:\.\d+)?)b", n.lower())
-                        return int(float(mm.group(1)) * 10) if mm else 9999
-                    ollama_model = min(installed, key=size_key)
+                    # el mas grande disponible del pool (o el mas chico si
+                    # todo es oversize y estamos reportando de todas formas)
+                    def size_key(n: str) -> float:
+                        s = _parse_model_size_b(n)
+                        return s if s is not None else 0.0
+                    if in_cap:
+                        ollama_model = max(in_cap, key=size_key)
+                    else:
+                        ollama_model = min(installed, key=size_key)
     return {
         "ok": True,
         "whisper": {

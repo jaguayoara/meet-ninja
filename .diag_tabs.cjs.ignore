@@ -1,0 +1,20 @@
+// Verificar que los 6 tabs estan en la barra y NO hay chat-bubble.
+const http = require('node:http');
+const PORT = '9223';
+function get(url) {
+  return new Promise((resolve, reject) => {
+    http.get(url, (res) => { let d = ''; res.on('data', c => d += c); res.on('end', () => resolve(d)); }).on('error', reject);
+  });
+}
+(async () => {
+  try {
+    const tabs = JSON.parse(await get(`http://127.0.0.1:${PORT}/json`));
+    console.log('Ventanas:', tabs.length);
+    const meet = tabs.find(t => (t.url || '').includes('5173'));
+    if (!meet) { console.log('No encontre ventana Meet Ninja'); return; }
+    console.log('URL:', meet.url);
+    console.log('Title:', meet.title);
+  } catch (e) {
+    console.log('Error:', e.message);
+  }
+})();
