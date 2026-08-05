@@ -73,6 +73,12 @@ const es: Dict = {
   'recorder.hint': 'Soportado: .wav, .mp3, .m4a, .ogg, .flac, .webm. Todo se procesa en este PC; nada sale a internet.',
   'recorder.micError': 'No se pudo acceder al microfono',
   'recorder.readError': 'No se pudo leer el archivo. Proba arrastrandolo a la zona de drop.',
+  'recorder.source': 'Fuente de audio',
+  'recorder.sourceMic': 'Microfono',
+  'recorder.sourceSystem': 'Audio del sistema',
+  'recorder.sourceBoth': 'Ambos',
+  'recorder.shareScreenHint': 'Al grabar, el sistema te pedira compartir pantalla. Tilda "Compartir audio de la pestana" o elegi la ventana/pantalla que tenga el audio que queres capturar.',
+  'recorder.systemNoAudio': 'No se detecto pista de audio del sistema. Volve a intentar y tilda la opcion de compartir audio.',
 
   // file drop
   'drop.title': 'Arrastra un audio aqui',
@@ -185,6 +191,12 @@ const en: Dict = {
   'recorder.hint': 'Supported: .wav, .mp3, .m4a, .ogg, .flac, .webm. Everything is processed on this PC; nothing leaves your computer.',
   'recorder.micError': 'Could not access microphone',
   'recorder.readError': 'Could not read the file. Try dragging it to the drop zone.',
+  'recorder.source': 'Audio source',
+  'recorder.sourceMic': 'Microphone',
+  'recorder.sourceSystem': 'System audio',
+  'recorder.sourceBoth': 'Both',
+  'recorder.shareScreenHint': 'When recording, the system will ask you to share a screen. Tick "Share tab audio" or pick the window/screen that has the audio you want to capture.',
+  'recorder.systemNoAudio': 'No system audio track was found. Please try again and tick the option to share audio.',
 
   'drop.title': 'Drag audio here',
   'drop.sub': 'or click to select',
@@ -287,6 +299,12 @@ const pt: Dict = {
   'recorder.hint': 'Suportado: .wav, .mp3, .m4a, .ogg, .flac, .webm. Tudo processado neste PC; nada sai do seu computador.',
   'recorder.micError': 'Nao foi possivel acessar o microfone',
   'recorder.readError': 'Nao foi possivel ler o arquivo. Tente arrastar para a zona de drop.',
+  'recorder.source': 'Fonte de audio',
+  'recorder.sourceMic': 'Microfone',
+  'recorder.sourceSystem': 'Audio do sistema',
+  'recorder.sourceBoth': 'Ambos',
+  'recorder.shareScreenHint': 'Ao gravar, o sistema pedira para compartilhar tela. Marque "Compartilhar audio da aba" ou escolha a janela/tela com o audio que voce quer capturar.',
+  'recorder.systemNoAudio': 'Nenhuma faixa de audio do sistema foi encontrada. Tente novamente e marque a opcao de compartilhar audio.',
 
   'drop.title': 'Arraste um audio aqui',
   'drop.sub': 'ou clique para selecionar',
