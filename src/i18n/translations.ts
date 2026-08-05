@@ -225,6 +225,14 @@ const es: Dict = {
   // header
   'header.goMenu': 'Volver al menu de sesiones',
   'header.sessions': 'Sesiones',
+
+  // live
+  'live.title': 'En vivo',
+  'live.hint': 'Transcripcion + traduccion en tiempo real con subtitulos en pantalla. El audio se graba para procesarlo despues.',
+  'live.start': 'Iniciar en vivo',
+  'live.stop': 'Detener',
+  'live.liveBadge': 'EN VIVO',
+  'live.showOverlay': 'Mostrar subtitulos sobre la app',
 };
 
 const en: Dict = {
@@ -390,6 +398,14 @@ const en: Dict = {
   // header
   'header.goMenu': 'Back to sessions',
   'header.sessions': 'Sessions',
+
+  // live
+  'live.title': 'Live',
+  'live.hint': 'Real-time transcription + translation with on-screen captions. Audio is recorded for later processing.',
+  'live.start': 'Start live',
+  'live.stop': 'Stop',
+  'live.liveBadge': 'LIVE',
+  'live.showOverlay': 'Show captions over the app',
 };
 
 const pt: Dict = {
@@ -555,6 +571,14 @@ const pt: Dict = {
   // header
   'header.goMenu': 'Voltar ao menu de sessoes',
   'header.sessions': 'Sessoes',
+
+  // live
+  'live.title': 'Ao vivo',
+  'live.hint': 'Transcricao + traducao em tempo real com legendas na tela. O audio e gravado para processar depois.',
+  'live.start': 'Iniciar ao vivo',
+  'live.stop': 'Parar',
+  'live.liveBadge': 'AO VIVO',
+  'live.showOverlay': 'Mostrar legendas sobre o app',
 };
 
 const dicts: Record<Lang, Dict> = { es, en, pt };

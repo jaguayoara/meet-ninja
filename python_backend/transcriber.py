@@ -155,6 +155,56 @@ class Transcriber:
         )
         return result
 
+    def transcribe_array(
+        self,
+        audio: "np.ndarray",
+        sample_rate: int = 16000,
+        language: str = "es",
+        beam_size: int = 1,
+        vad_filter: bool = True,
+    ) -> TranscriptionResult:
+        """
+        Transcribe un array de numpy (float32, mono, sample_rate Hz).
+        Usado por el pipeline live que recibe audio PCM del frontend
+        sin pasar por un archivo en disco.
+        """
+        import numpy as np
+        if audio is None or len(audio) == 0:
+            raise ValueError("Audio vacio")
+        if audio.dtype != np.float32:
+            audio = audio.astype(np.float32)
+
+        self._load()
+        log.info(
+            "Transcribiendo array: shape=%s, sr=%d, lang=%s",
+            audio.shape, sample_rate, language or "auto",
+        )
+
+        segments_iter, info = self._model.transcribe(
+            audio,
+            language=language,
+            beam_size=beam_size,
+            vad_filter=vad_filter,
+            vad_parameters={"min_silence_duration_ms": 300} if vad_filter else None,
+        )
+
+        segments: list[Segment] = []
+        text_parts: list[str] = []
+        for seg in segments_iter:
+            s = Segment(start=float(seg.start), end=float(seg.end), text=seg.text.strip())
+            segments.append(s)
+            text_parts.append(s.text)
+
+        full_text = " ".join(text_parts).strip()
+        return TranscriptionResult(
+            language=info.language,
+            language_probability=float(info.language_probability),
+            duration=float(info.duration),
+            text=full_text,
+            segments=segments,
+            model=self.model_name,
+        )
+
     def available_models(self) -> list[str]:
         return list(VALID_MODELS)
 

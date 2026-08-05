@@ -40,6 +40,7 @@ from summarizer import (
 )
 from transcriber import DEFAULT_MODEL, VALID_MODELS, get_transcriber
 from searcher import search
+from live import router as live_router
 
 # --------------------------------------------------------------------
 # Logging
@@ -61,6 +62,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Live transcription + translation (WebSocket)
+app.include_router(live_router)
 
 # Carpeta temporal para audios subidos. Se limpian al transcribir.
 TMP_DIR = Path(tempfile.gettempdir()) / "meetninja"

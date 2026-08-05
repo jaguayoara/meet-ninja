@@ -16,6 +16,8 @@ import { ModePanel } from './components/ModePanel';
 import { TranslatePanel } from './components/TranslatePanel';
 import { SessionMenu } from './components/SessionMenu';
 import { ChatBubble } from './components/ChatBubble';
+import { LiveOverlay, type LiveLine } from './components/LiveOverlay';
+import { useLiveSession } from './lib/live';
 import {
   useAppStore,
   useCurrentSession,
@@ -158,6 +160,24 @@ function SessionView({ sessionId }: { sessionId: string }) {
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const setChatBubbleOpen = useAppStore((s) => s.setChatBubbleOpen);
   const chatBubbleOpen = useAppStore((s) => s.chatBubbleOpen);
+
+  // ---- Live transcription + translation ----
+  const [transcriptLines, setTranscriptLines] = useState<LiveLine[]>([]);
+  const [translationLines, setTranslationLines] = useState<LiveLine[]>([]);
+  const [liveVisible, setLiveVisible] = useState(true);
+  const live = useLiveSession({
+    sourceLang: uiLang === 'en' ? 'en' : uiLang === 'pt' ? 'pt' : 'es',
+    targetLang: uiLang,
+    whisperModel: whisperModel,
+    onTranscript: (e) => {
+      if (!e.text) return; // evento vacio se usa como senal interna
+      setTranscriptLines((prev) => [...prev, { text: e.text, ts: Date.now(), kind: 'transcript' as const }].slice(-20));
+    },
+    onTranslation: (e) => {
+      setTranslationLines((prev) => [...prev, { text: e.text, ts: Date.now(), kind: 'translation' as const }].slice(-20));
+    },
+    onError: () => undefined,
+  });
 
   if (!session) return null;
 
@@ -317,6 +337,47 @@ function SessionView({ sessionId }: { sessionId: string }) {
           </div>
         </section>
 
+        <section className="card">
+          <h3 className="card-title">{t('live.title')}</h3>
+          <p className="hint" style={{ marginTop: 0, marginBottom: 8 }}>
+            {t('live.hint')}
+          </p>
+          {live.status === 'idle' || live.status === 'closed' || live.status === 'error' ? (
+            <button
+              type="button"
+              className="btn btn-primary btn-lg"
+              onClick={() => { setTranscriptLines([]); setTranslationLines([]); live.start(); }}
+              disabled={!backendReady}
+            >
+              ● {t('live.start')}
+            </button>
+          ) : (
+            <div className="live-controls">
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => live.stop()}
+              >
+                ■ {t('live.stop')}
+              </button>
+              <span className="live-status-badge live-status-active">
+                {t('live.liveBadge')}
+              </span>
+            </div>
+          )}
+          {live.error && <div className="alert alert-error" style={{ marginTop: 8 }}>{live.error}</div>}
+          {(live.status === 'active') && (
+            <label className="live-toggle">
+              <input
+                type="checkbox"
+                checked={liveVisible}
+                onChange={(e) => setLiveVisible(e.target.checked)}
+              />
+              {t('live.showOverlay')}
+            </label>
+          )}
+        </section>
+
         {transcription && (
           <section className="card">
             <h3 className="card-title">{t('card.5.translate')}</h3>
@@ -379,6 +440,12 @@ function SessionView({ sessionId }: { sessionId: string }) {
           {activeTab === 'conversacion' && <ModePanel mode="conversacion" />}
         </div>
       </main>
+
+      <LiveOverlay
+        transcripts={transcriptLines}
+        translations={translationLines}
+        visible={liveVisible && (live.status === 'active' || live.status === 'connecting')}
+      />
     </div>
   );
 }
