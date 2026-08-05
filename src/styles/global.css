@@ -579,16 +579,16 @@ code {
   bottom: 24px;
   width: 420px;
   max-width: calc(100vw - 32px);
-  height: 580px;
-  max-height: calc(100vh - 80px);
+  height: 620px;
+  max-height: calc(100vh - 60px);
   min-height: 0;
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.1);
   z-index: 900;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr;
   overflow: hidden;
   animation: chat-bubble-pop 0.18s ease-out;
 }
@@ -686,17 +686,18 @@ code {
 }
 
 .chat-bubble-body {
-  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   padding: 12px;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .chat-bubble-body .search-panel,
 .chat-bubble-body .chat-panel {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -1616,7 +1617,7 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  height: 100%;
+  flex: 1 1 0;
   min-height: 0;
 }
 
@@ -1646,6 +1647,8 @@ textarea:focus {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  /* Limite duro para que el input nunca quede fuera del bubble */
+  max-height: 100%;
 }
 
 .chat-empty {
@@ -1736,6 +1739,11 @@ textarea:focus {
   padding-top: 8px;
   border-top: 1px solid var(--border);
   background: var(--bg-elevated);
+  /* Sticky al fondo del bubble-body: si el flex falla, el input sigue visible */
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  box-shadow: 0 -2px 8px -2px rgba(0, 0, 0, 0.08);
 }
 
 .chat-input {
