@@ -12,6 +12,7 @@ import { FileDrop } from './components/FileDrop';
 import { TranscriptionView } from './components/TranscriptionView';
 import { ModePanel } from './components/ModePanel';
 import { SearchPanel } from './components/SearchPanel';
+import { ChatPanel } from './components/ChatPanel';
 import { useAppStore, type TabId } from './store/useAppStore';
 import { health as healthApi, transcribe as transcribeApi } from './lib/api';
 import { downloadText, humanSize } from './lib/format';
@@ -225,7 +226,14 @@ export default function App() {
 
           {transcription && (
             <section className="card">
-              <h3 className="card-title">4. Exportar</h3>
+              <h3 className="card-title">4. Conversar</h3>
+              <ChatPanel />
+            </section>
+          )}
+
+          {transcription && (
+            <section className="card">
+              <h3 className="card-title">5. Exportar</h3>
               <div className="export-buttons">
                 <button className="btn btn-ghost" onClick={exportTranscriptTxt} type="button">
                   Transcripcion .txt

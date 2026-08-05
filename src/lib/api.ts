@@ -123,3 +123,32 @@ export async function search(opts: {
   if (!r.ok) throw new Error(`search failed: ${r.status}`);
   return r.json();
 }
+
+export type ChatMessage = { role: 'user' | 'assistant'; content: string };
+
+export async function chat(opts: {
+  transcript: string;
+  question: string;
+  history?: ChatMessage[];
+}): Promise<{ ok: boolean; answer: string }> {
+  const r = await fetch(`${await getBaseUrl()}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      transcript: opts.transcript,
+      question: opts.question,
+      history: opts.history || [],
+    }),
+  });
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try {
+      const j = await r.json();
+      msg = j.detail || msg;
+    } catch {
+      // ignore
+    }
+    throw new Error(msg);
+  }
+  return r.json();
+}

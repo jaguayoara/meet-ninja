@@ -62,6 +62,11 @@ type AppState = {
   // busqueda
   search: SearchState;
 
+  // chat
+  chatMessages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  chatLoading: boolean;
+  chatError: string | null;
+
   // setters
   setBackendStatus: (s: Partial<Pick<AppState, 'backendReady' | 'backendError' | 'whisperModel' | 'whisperAvailable' | 'ollamaAvailable' | 'ollamaModel' | 'ollamaMaxModelB' | 'ollamaAllowOversize'>>) => void;
   setAudio: (blob: Blob | null, name: string | null, duration?: number) => void;
@@ -78,6 +83,10 @@ type AppState = {
   setSearchResults: (results: SearchState['results'], error?: string | null) => void;
   setSearchLoading: (v: boolean) => void;
   setActiveMatch: (i: number) => void;
+  addChatMessage: (msg: { role: 'user' | 'assistant'; content: string }) => void;
+  clearChat: () => void;
+  setChatLoading: (v: boolean) => void;
+  setChatError: (e: string | null) => void;
   reset: () => void;
 };
 
@@ -96,6 +105,12 @@ const initialSearch: SearchState = {
   loading: false,
   error: null,
   activeMatchIdx: 0,
+};
+
+const initialChat = {
+  chatMessages: [] as Array<{ role: 'user' | 'assistant'; content: string }>,
+  chatLoading: false,
+  chatError: null as string | null,
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -127,6 +142,7 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   search: initialSearch,
+  ...initialChat,
 
   setBackendStatus: (s) => set((st) => ({ ...st, ...s })),
   setAudio: (blob, name, duration = 0) =>
@@ -143,6 +159,9 @@ export const useAppStore = create<AppState>((set) => ({
         conversacion: emptySummary(),
       },
       search: initialSearch,
+      chatMessages: [],
+      chatLoading: false,
+      chatError: null,
     })),
   setRecording: (v) => set(() => ({ isRecording: v })),
   setWhisperModel: (m) => set(() => ({ whisperModel: m })),
@@ -177,6 +196,12 @@ export const useAppStore = create<AppState>((set) => ({
     set((st) => ({ search: { ...st.search, loading: v } })),
   setActiveMatch: (i) =>
     set((st) => ({ search: { ...st.search, activeMatchIdx: i } })),
+  addChatMessage: (msg) =>
+    set((st) => ({ chatMessages: [...st.chatMessages, msg] })),
+  clearChat: () =>
+    set(() => ({ chatMessages: [], chatError: null })),
+  setChatLoading: (v) => set(() => ({ chatLoading: v })),
+  setChatError: (e) => set(() => ({ chatError: e })),
   reset: () =>
     set(() => ({
       audioBlob: null,
@@ -194,6 +219,9 @@ export const useAppStore = create<AppState>((set) => ({
         conversacion: emptySummary(),
       },
       search: initialSearch,
+      chatMessages: [],
+      chatLoading: false,
+      chatError: null,
     })),
 }));
 

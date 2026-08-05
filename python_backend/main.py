@@ -82,6 +82,12 @@ class SearchRequest(BaseModel):
     context_chars: int = 80
 
 
+class ChatRequest(BaseModel):
+    transcript: str
+    question: str
+    history: list[dict] = []  # [{role: "user"|"assistant", content: str}, ...]
+
+
 # --------------------------------------------------------------------
 # Rutas
 # --------------------------------------------------------------------
@@ -90,7 +96,7 @@ def root():
     return {
         "name": "Meet Ninja API",
         "version": "0.1.0",
-        "endpoints": ["/health", "/models", "/transcribe", "/summarize", "/search"],
+        "endpoints": ["/health", "/models", "/transcribe", "/summarize", "/search", "/chat"],
     }
 
 
@@ -231,6 +237,115 @@ async def search_endpoint(req: SearchRequest):
     except Exception as e:
         log.exception("Error en search")
         raise HTTPException(500, f"Error buscando: {e}")
+
+
+@app.post("/chat")
+async def chat_endpoint(req: ChatRequest):
+    """
+    RAG basico: responde preguntas del usuario sobre la transcripcion.
+    Usa el LLM local embebido (Qwen2.5-1.5B) con la transcripcion
+    como system context. Mantiene historial de la conversacion.
+    """
+    transcript = (req.transcript or "").strip()
+    question = (req.question or "").strip()
+    if not transcript:
+        raise HTTPException(400, "Transcripcion vacia")
+    if not question:
+        raise HTTPException(400, "Pregunta vacia")
+
+    # System prompt con la transcripcion como contexto
+    system = (
+        "INSTRUCCIONES ESTRICTAS:\n"
+        "- Tu unica fuente de informacion es la transcripcion entre comillas triples.\n"
+        "- Si la respuesta NO esta en la transcripcion, responde EXACTAMENTE: 'No se encontro en la transcripcion'.\n"
+        "- NO uses conocimiento externo. NO inventes datos. NO hagas suposiciones.\n"
+        "- Cita textualmente entre comillas cuando menciones algo de la transcripcion.\n"
+        "- Responde en espanol, maximo 3-4 oraciones.\n\n"
+        "Transcripcion:\n"
+        f'"""\n{transcript[:16000]}\n"""'
+    )
+
+    # Construir messages con historial
+    messages = [{"role": "user", "content": question}]
+    # si hay historial previo, lo agregamos
+    history_msgs = []
+    for h in (req.history or [])[-10:]:  # ultimos 10 mensajes
+        role = h.get("role")
+        content = h.get("content", "")
+        if role in ("user", "assistant") and content:
+            history_msgs.append({"role": role, "content": content[:2000]})
+
+    try:
+        from llm_local import get_llm
+        llm = get_llm()
+        # asegura que el server local este corriendo (lazy: arranca si no)
+        llm._ensure_ready()
+        log.info("Chat: pregunta=%d chars, historial=%d msgs", len(question), len(history_msgs))
+
+        # si hay historial, lo metemos en una sola llamada con mensajes
+        # sino, llamada simple con system+user
+        import asyncio
+        if history_msgs:
+            full_messages = history_msgs + messages
+            # mandamos todo como un solo prompt al LLM (sin system)
+            # el system ya va por separado
+            # el endpoint /v1/chat/completions acepta messages con role system
+            response = await asyncio.to_thread(
+                _llm_chat_with_messages, llm, system, full_messages, 512
+            )
+        else:
+            response = await asyncio.to_thread(
+                _llm_chat_simple, llm, system, question, 512
+            )
+        return {"ok": True, "answer": response.strip()}
+    except Exception as e:
+        log.exception("Error en chat")
+        raise HTTPException(500, f"Error en chat: {e}")
+
+
+def _llm_chat_simple(llm, system: str, user: str, max_tokens: int) -> str:
+    """Llamada simple al LLM con system + user prompt."""
+    # usamos el endpoint /v1/chat/completions directamente via httpx
+    import httpx
+    port = llm._port
+    with httpx.Client(timeout=180.0) as client:
+        r = client.post(
+            f"http://127.0.0.1:{port}/v1/chat/completions",
+            json={
+                "model": "local",
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "max_tokens": max_tokens,
+                "temperature": 0.2,
+                "stream": False,
+            },
+        )
+    if r.status_code != 200:
+        raise RuntimeError(f"LLM HTTP {r.status_code}: {r.text[:200]}")
+    return r.json()["choices"][0]["message"]["content"]
+
+
+def _llm_chat_with_messages(llm, system: str, messages: list, max_tokens: int) -> str:
+    """Llamada al LLM con system + historial + pregunta actual."""
+    import httpx
+    port = llm._port
+    msgs = [{"role": "system", "content": system}] + messages
+    with httpx.Client(timeout=180.0) as client:
+        r = client.post(
+            f"http://127.0.0.1:{port}/v1/chat/completions",
+            json={
+                "model": "local",
+                "messages": msgs,
+                "max_tokens": max_tokens,
+                "temperature": 0.2,
+                "stream": False,
+            },
+        )
+    if r.status_code != 200:
+        raise RuntimeError(f"LLM HTTP {r.status_code}: {r.text[:200]}")
+    return r.json()["choices"][0]["message"]["content"]
 
 
 def _which(cmd: str) -> Optional[str]:
