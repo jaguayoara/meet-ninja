@@ -56,6 +56,11 @@ temp/
 vite.config.js
 vite.config.d.ts
 
+# Archivos temporales de diagnostico
+*.tmp
+*.tmp.old
+*.tmp.bak
+
 # Diag scripts
 scripts/diag_*.cjs
 scripts/diag_*.js
