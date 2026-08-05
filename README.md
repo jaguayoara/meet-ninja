@@ -126,40 +126,70 @@ npm run package:linux
 - **Archivos temporales**: los audios subidos se eliminan inmediatamente despues de transcribir.
 - **Modelos locales**: faster-whisper y Ollama corren en tu CPU/GPU, no en la nube.
 
-## Ollama (opcional, recomendado)
+## LLM local (incluido, sin dependencias externas)
 
-Para obtener los mejores resúmenes, instala [Ollama](https://ollama.com) y descarga un modelo **chico** apropiado para tu PC:
+**Meet Ninja trae su propio LLM embebido.** La primera vez que uses la app, se descarga automaticamente:
 
-| Tu PC | Modelo recomendado | Por que |
-|---|---|---|
-| Oficina sin GPU, 8 GB RAM | `ollama pull qwen2.5:1.5b` | ~1 GB, responde en 2-5 s |
-| Oficina sin GPU, 16 GB RAM | `ollama pull llama3.2:3b` | ~2 GB, balance ideal |
-| Con GPU NVIDIA (>=8 GB VRAM) | `ollama pull llama3.1:8b` | Mucho mejor, ~3 s por respuesta |
-| Workstation con GPU potente | `ollama pull qwen2.5:7b` | Maxima calidad |
+1. **El binario de llama.cpp** (~17 MB, pre-compilado para Windows) desde sus GitHub releases.
+2. **El modelo Qwen2.5-1.5B-Instruct Q4_K_M** (~1 GB, multilingue, cuantizado) desde HuggingFace.
 
-Meet Ninja detecta Ollama automaticamente y lo usa. **Si Ollama no esta disponible, la app usa resumen extractivo (sin LLM) y sigue funcionando** — no se rompe nada.
+Ambos quedan cacheados en `python_backend/bin/` y `python_backend/models/llm/`. Solo se bajan **una vez**. La app no necesita Ollama ni ningun servicio externo.
 
-### Cap automatico de tamaño (protege PCs debiles)
+| Tu PC | Resultado esperado |
+|---|---|
+| Oficina sin GPU, 8 GB RAM | Primera vez ~30-60 s (carga modelo). Despues 2-10 s por resumen. |
+| Oficina sin GPU, 16 GB RAM | Igual de fluido, con mas headroom para transcripciones largas. |
+| Con GPU NVIDIA (>=4 GB VRAM) | Mucho mas rapido. Ajusta `MEETNINJA_LLM_GPU_LAYERS=99`. |
 
-Por default, Meet Ninja **ignora modelos de mas de 4B** para no congelar la PC en oficinas sin GPU. Veras un warning amarillo en la pestaña de cada modo si tienes modelos grandes instalados pero no se usan.
+### Orden de prioridad para resúmenes
 
-Si queres cambiar el cap o forzar el uso de modelos grandes:
+1. **LLM local embebido** (default, sin servicios externos)
+2. **Ollama** (opcional, si lo tienes instalado)
+3. **Resumen extractivo** (sin LLM, siempre funciona)
+
+### Ollama (opcional, si quieres resúmenes mas grandes)
+
+Si tenes una PC potente con GPU y queres resúmenes de mejor calidad, podes usar Ollama ademas del LLM local. Meet Ninja lo detecta automaticamente.
+
+| Tu PC | Modelo recomendado |
+|---|---|
+| Oficina sin GPU, 8 GB RAM | `ollama pull qwen2.5:1.5b` |
+| Oficina sin GPU, 16 GB RAM | `ollama pull llama3.2:3b` |
+| Con GPU NVIDIA (>=8 GB VRAM) | `ollama pull llama3.1:8b` |
+| Workstation con GPU potente | `ollama pull qwen2.5:7b` |
+
+**Por defecto Meet Ninja ignora modelos de mas de 4B** para no congelar la PC en oficinas sin GPU. Veras un warning amarillo si tienes modelos grandes instalados pero no se usan.
 
 ```bash
-# Cambiar el cap a 8B (recomendado solo si tenes buena CPU/RAM)
+# Cambiar el cap (si tenes GPU o mucha RAM)
 set MEETNINJA_MAX_MODEL_B=8
 
-# Forzar el uso de modelos que excedan el cap (para usuarios avanzados con GPU)
+# Forzar el uso de modelos que excedan el cap (avanzado)
 set MEETNINJA_ALLOW_OVERSIZE=1
+
+# Cambiar el modelo preferido
+set MEETNINJA_OLLAMA_MODEL=llama3.2:3b
 ```
 
-Tambien podes elegir el modelo preferido por env var:
+### Cambiar el modelo del LLM local
+
+Por default usa `Qwen2.5-1.5B-Instruct Q4_K_M`. Si queres otro:
 
 ```bash
-set MEETNINJA_OLLAMA_MODEL=qwen2.5:1.5b
+# Cualquier modelo GGUF de HuggingFace
+set MEETNINJA_LLM_MODEL_REPO=TheBloke/Llama-2-7B-Chat-GGUF
+set MEETNINJA_LLM_MODEL_FILE=llama-2-7b-chat.Q4_K_M.gguf
 ```
 
-**Por que el cap de 4B?** En CPU moderna sin GPU, modelos de 7B tardan 1-3 minutos por respuesta y modelos de 12B+ literalmente congelan la maquina. Modelos de 1-3B dan respuestas utiles en 2-10 segundos y funcionan bien para resumenes estructurados. Si tenes GPU, subí el cap.
+Tambien podes ajustar el contexto y los threads:
+
+```bash
+set MEETNINJA_LLM_CTX=8192       # ventana de contexto (default 4096)
+set MEETNINJA_LLM_THREADS=8      # threads CPU (default: cpu_count - 1)
+set MEETNINJA_LLM_GPU_LAYERS=99  # descargar capas a GPU (0 = CPU only)
+```
+
+**Por que un modelo chico (1.5B)?** En CPU moderna sin GPU, modelos de 7B tardan 1-3 minutos por respuesta y modelos de 12B+ literalmente congelan la maquina. Qwen2.5-1.5B da respuestas utiles en 2-10 segundos y funciona bien para resumenes estructurados. Si tenes GPU, subí el tamaño.
 
 ## Tecnologias
 
@@ -172,7 +202,9 @@ set MEETNINJA_OLLAMA_MODEL=qwen2.5:1.5b
 **Backend Python embebido (FastAPI):**
 - [FastAPI](https://fastapi.tiangolo.com/) + [uvicorn](https://www.uvicorn.org/)
 - [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — transcripcion (modelo CTranslate2, int8 en CPU)
-- [Ollama](https://ollama.com) — LLM local opcional
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) — binario pre-compilado para el LLM local
+- [Qwen2.5-1.5B-Instruct GGUF](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF) — modelo de lenguaje embebido
+- [Ollama](https://ollama.com) — LLM alternativo opcional
 - [httpx](https://www.python-httpx.org/) — cliente HTTP async
 
 ## Estructura del proyecto
