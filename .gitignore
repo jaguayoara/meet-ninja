@@ -55,3 +55,7 @@ temp/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+
+# Diag scripts
+scripts/diag_*.cjs
+scripts/diag_*.js

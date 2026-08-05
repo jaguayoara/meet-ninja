@@ -88,7 +88,13 @@ export function Recorder() {
    */
   async function pickSourceId(): Promise<string | null> {
     if (!window.meetninja?.getDesktopSources) {
-      throw new Error(t('recorder.electronOnly'));
+      const disponibles = window.meetninja ? Object.keys(window.meetninja).join(', ') : 'undefined';
+      throw new Error(
+        `[diag] getDesktopSources no esta en window.meetninja. ` +
+        `window.meetninja = ${disponibles || 'undefined'}. ` +
+        `Probable causa: la ventana se abrio antes de recompilar el preload. ` +
+        `Cerrala (X) y volve a abrir Meet Ninja.`
+      );
     }
     const sources = await window.meetninja.getDesktopSources();
     if (sources.length === 0) {
