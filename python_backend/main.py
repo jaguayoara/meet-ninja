@@ -30,7 +30,14 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from summarizer import OLLAMA_MODEL, OLLAMA_URL, ollama_available, summarize
+from summarizer import (
+    OLLAMA_MODEL,
+    OLLAMA_URL,
+    MAX_MODEL_B,
+    ALLOW_OVERSIZE,
+    ollama_available,
+    summarize,
+)
 from transcriber import DEFAULT_MODEL, VALID_MODELS, get_transcriber
 from searcher import search
 
@@ -120,6 +127,8 @@ async def health():
             "available": ollama_ok,
             "url": OLLAMA_URL,
             "model": ollama_model,
+            "max_model_b": MAX_MODEL_B,
+            "allow_oversize": ALLOW_OVERSIZE,
         },
         "ffmpeg": _which("ffmpeg"),
         "python": sys.version.split()[0],

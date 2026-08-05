@@ -38,6 +38,7 @@ export default function App() {
   const whisperAvailable = useAppStore((s) => s.whisperAvailable);
   const ollamaAvailable = useAppStore((s) => s.ollamaAvailable);
   const ollamaModel = useAppStore((s) => s.ollamaModel);
+  const ollamaMaxModelB = useAppStore((s) => s.ollamaMaxModelB);
   const backendReady = useAppStore((s) => s.backendReady);
   const backendError = useAppStore((s) => s.backendError);
   const setBackendStatus = useAppStore((s) => s.setBackendStatus);
@@ -65,6 +66,8 @@ export default function App() {
             whisperAvailable: h.whisper.available_models,
             ollamaAvailable: h.ollama.available,
             ollamaModel: h.ollama.model,
+            ollamaMaxModelB: h.ollama.max_model_b,
+            ollamaAllowOversize: h.ollama.allow_oversize,
           });
           return;
         } catch {
@@ -157,6 +160,7 @@ export default function App() {
             error={backendError}
             ollamaAvailable={ollamaAvailable}
             ollamaModel={ollamaModel}
+            ollamaMaxModelB={ollamaMaxModelB}
           />
           <button className="btn btn-ghost btn-sm" onClick={reset} type="button">
             Nueva sesion
@@ -268,11 +272,13 @@ function BackendStatus({
   error,
   ollamaAvailable,
   ollamaModel,
+  ollamaMaxModelB,
 }: {
   ready: boolean;
   error: string | null;
   ollamaAvailable: boolean;
   ollamaModel: string;
+  ollamaMaxModelB: number;
 }) {
   if (!ready) {
     return <span className="status status-error" title={error || ''}>Backend: error</span>;
@@ -282,9 +288,13 @@ function BackendStatus({
       <span className="status status-ok">Backend OK</span>
       <span
         className={`status ${ollamaAvailable ? 'status-ok' : 'status-warn'}`}
-        title={ollamaAvailable ? `Ollama: ${ollamaModel}` : 'Ollama no detectado. Se usara resumen extractivo.'}
+        title={
+          ollamaAvailable
+            ? `Ollama: ${ollamaModel} (cap ${ollamaMaxModelB}B)`
+            : 'Ollama no detectado. Se usara resumen extractivo.'
+        }
       >
-        {ollamaAvailable ? `Ollama: ${ollamaModel}` : 'Ollama: no'}
+        {ollamaAvailable ? `Ollama: ${ollamaModel} (≤${ollamaMaxModelB}B)` : 'Ollama: no'}
       </span>
     </div>
   );

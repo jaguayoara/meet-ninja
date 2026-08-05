@@ -38,6 +38,8 @@ type AppState = {
   whisperAvailable: string[];
   ollamaAvailable: boolean;
   ollamaModel: string;
+  ollamaMaxModelB: number;
+  ollamaAllowOversize: boolean;
 
   // audio
   audioBlob: Blob | null;
@@ -61,7 +63,7 @@ type AppState = {
   search: SearchState;
 
   // setters
-  setBackendStatus: (s: Partial<Pick<AppState, 'backendReady' | 'backendError' | 'whisperModel' | 'whisperAvailable' | 'ollamaAvailable' | 'ollamaModel'>>) => void;
+  setBackendStatus: (s: Partial<Pick<AppState, 'backendReady' | 'backendError' | 'whisperModel' | 'whisperAvailable' | 'ollamaAvailable' | 'ollamaModel' | 'ollamaMaxModelB' | 'ollamaAllowOversize'>>) => void;
   setAudio: (blob: Blob | null, name: string | null, duration?: number) => void;
   setRecording: (v: boolean) => void;
   setWhisperModel: (m: string) => void;
@@ -103,6 +105,8 @@ export const useAppStore = create<AppState>((set) => ({
   whisperAvailable: ['tiny', 'base', 'small', 'medium', 'large-v3'],
   ollamaAvailable: false,
   ollamaModel: '',
+  ollamaMaxModelB: 4,
+  ollamaAllowOversize: false,
 
   audioBlob: null,
   audioFileName: null,

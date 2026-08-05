@@ -81,6 +81,12 @@ export function ModePanel({ mode }: { mode: Mode }) {
 
       {summary.error && <div className="alert alert-error">Error: {summary.error}</div>}
 
+      {summary.data && Boolean((summary.data as Record<string, unknown>)._warning) && (
+        <div className="alert alert-warn">
+          <strong>Aviso:</strong> {String((summary.data as Record<string, unknown>)._warning)}
+        </div>
+      )}
+
       {!transcription && (
         <div className="empty-state">
           <p>Primero transcribí un audio para poder generar el resumen.</p>

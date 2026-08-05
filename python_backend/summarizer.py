@@ -25,18 +25,45 @@ log = logging.getLogger("meetninja.summarizer")
 
 OLLAMA_URL = os.environ.get("MEETNINJA_OLLAMA_URL", "http://127.0.0.1:11434")
 # Modelo preferido. Si no esta, probamos los de FALLBACK_MODELS.
-OLLAMA_MODEL = os.environ.get("MEETNINJA_OLLAMA_MODEL", "llama3.1:8b")
-# Modelos a probar en orden si el preferido no esta. Abarca los mas comunes.
+# Por defecto NO pedimos un modelo grande porque en PCs de oficina sin GPU
+# son inutilizables. El usuario puede sobreescribir via env var.
+OLLAMA_MODEL = os.environ.get("MEETNINJA_OLLAMA_MODEL", "llama3.2:3b")
+# Tope maximo de parametros del modelo (en miles de millones) que vamos
+# a usar automaticamente. Por default 4B - en CPU sin GPU dedicada,
+# modelos mas grandes son lentisimos (minutos por respuesta, swap a disco).
+# Si el usuario quiere usar un modelo mas grande (tiene GPU, mucha RAM),
+# puede subirlo via MEETNINJA_MAX_MODEL_B=12 o similar.
+try:
+    MAX_MODEL_B = float(os.environ.get("MEETNINJA_MAX_MODEL_B", "4"))
+except ValueError:
+    MAX_MODEL_B = 4.0
+# Si es True, permite usar modelos que exceden MAX_MODEL_B (queda a criterio
+# del usuario). Por default False para no degradar UX en PCs debiles.
+ALLOW_OVERSIZE = os.environ.get("MEETNINJA_ALLOW_OVERSIZE", "0") in ("1", "true", "yes")
+# Modelos a probar en orden si el preferido no esta. Priorizamos modelos
+# CHICOS (1-3B) que corren rapido en CPU. Los grandes quedan como ultimo
+# recurso y solo si no hay nada chico.
 FALLBACK_MODELS = [
-    "llama3.1:8b",
-    "llama3:8b",
+    # primera linea: modelos chicos (rapidos en CPU)
     "llama3.2:3b",
-    "qwen2.5:7b",
-    "qwen3:8b",
-    "mistral:7b",
-    "gemma2:9b",
+    "qwen2.5:3b",
     "gemma3:4b",
-    "phi3:medium",
+    "phi3:mini",
+    "llama3.2:1b",
+    "qwen2.5:1.5b",
+    "gemma3:1b",
+    "qwen3:1.7b",
+    "qwen3.5:0.8b",
+    "tinyllama:1.1b",
+    # segunda linea: medianos (pasan el cap, pero tolerables en CPU buena)
+    "mistral:7b",
+    "llama3.1:8b",
+    "qwen2.5:7b",
+    # tercera linea: grandes (se evitan salvo que no haya otra cosa Y
+    # el usuario habilito ALLOW_OVERSIZE)
+    "gemma4:12b",
+    "gemma2:9b",
+    "qwen3:8b",
 ]
 
 
@@ -44,6 +71,32 @@ def _is_generative_model(name: str) -> bool:
     """Heuristica: descarta modelos de embeddings y otros no generativos."""
     n = name.lower()
     return not any(skip in n for skip in ("embed", "nomic-embed", "bge-", "minilm", "mpnet"))
+
+
+def _parse_model_size_b(name: str) -> float | None:
+    """
+    Devuelve el tamano aproximado en miles de millones de parametros
+    extraido del nombre del modelo ollama. Ej: "gemma4:12b" -> 12.0,
+    "qwen3.5:0.8b" -> 0.8, "llama3.1:8b" -> 8.0. None si no se puede.
+    """
+    import re
+    m = re.search(r"(\d+(?:\.\d+)?)\s*b\b", name.lower())
+    if m:
+        return float(m.group(1))
+    return None
+
+
+def _is_oversize(name: str) -> bool:
+    """
+    True si el modelo excede el cap MAX_MODEL_B. Si el tamano no se puede
+    inferir del nombre (ej "gemma4:latest"), se considera oversize por
+    default para ser conservadores. El usuario puede forzar via
+    MEETNINJA_ALLOW_OVERSIZE=1 si sabe lo que hace.
+    """
+    size = _parse_model_size_b(name)
+    if size is None:
+        return True
+    return size > MAX_MODEL_B
 OLLAMA_TIMEOUT = float(os.environ.get("MEETNINJA_OLLAMA_TIMEOUT", "120"))
 
 
@@ -345,44 +398,86 @@ async def _ollama_generate_with_model(prompt: str, model: str) -> Optional[str]:
         return None
 
 
-async def _ollama_generate(prompt: str) -> tuple[Optional[str], Optional[str]]:
+async def _ollama_generate(prompt: str) -> tuple[Optional[str], Optional[str], str | None]:
     """
     Intenta generar con el modelo preferido; si no esta, prueba los FALLBACK_MODELS.
     Descarta modelos de embeddings (no son generativos).
     Si ninguno conocido responde, prueba el resto de modelos instalados en
     orden de tamano (mas chico primero).
-    Devuelve (respuesta, modelo_usado) o (None, None) si nada funciono.
+    Respeta MAX_MODEL_B: modelos mas grandes se evitan salvo ALLOW_OVERSIZE.
+    Devuelve (respuesta, modelo_usado, warning) o (None, None, warning).
     """
     installed = set(await _ollama_list_models())
     # filtrar modelos no generativos
     installed = {m for m in installed if _is_generative_model(m)}
     if not installed:
-        return None, None
+        return None, None, None
+
+    # separar modelos en "dentro del cap" y "sobre el cap"
+    in_cap: list[str] = []
+    oversize: list[str] = []
+    for m in installed:
+        if _is_oversize(m):
+            oversize.append(m)
+        else:
+            in_cap.append(m)
+
+    warning: str | None = None
+    if oversize and not ALLOW_OVERSIZE:
+        # loguear los modelos que estamos ignorando
+        nombres = ", ".join(f"{m} ({_parse_model_size_b(m) or '?'}B)" for m in oversize)
+        log.warning(
+            "Modelos ignorados por exceder MAX_MODEL_B=%.1f (usar MEETNINJA_ALLOW_OVERSIZE=1 para forzar): %s",
+            MAX_MODEL_B, nombres,
+        )
+        warning = (
+            f"{len(oversize)} modelo(s) instalado(s) ignorado(s) por exceder el cap de "
+            f"{MAX_MODEL_B:.0f}B (configurable con MEETNINJA_MAX_MODEL_B). "
+            f"En PC de oficina sin GPU, modelos grandes son muy lentos. "
+            f"Para forzar: MEETNINJA_ALLOW_OVERSIZE=1"
+        )
+
+    pool = in_cap if in_cap else (oversize if ALLOW_OVERSIZE else [])
 
     # construir lista priorizada de candidatos
     candidates: list[str] = []
-    if OLLAMA_MODEL in installed:
+    if OLLAMA_MODEL in pool:
         candidates.append(OLLAMA_MODEL)
     for m in FALLBACK_MODELS:
-        if m in installed and m not in candidates:
+        if m in pool and m not in candidates:
             candidates.append(m)
-    # agregar el resto de instalados, ordenados por tamano (chico primero)
-    if installed:
-        def size_key(n: str) -> int:
-            import re
-            mm = re.search(r"(\d+(?:\.\d+)?)b", n.lower())
-            return int(float(mm.group(1)) * 10) if mm else 9999
-        for m in sorted(installed, key=size_key):
-            if m not in candidates:
-                candidates.append(m)
+    # agregar el resto del pool, ordenados por tamano (chico primero)
+    def size_key(n: str) -> float:
+        s = _parse_model_size_b(n)
+        return s if s is not None else 999.0
+    for m in sorted(pool, key=size_key):
+        if m not in candidates:
+            candidates.append(m)
+
+    # si no hay candidatos (pool vacio porque solo habia oversize y no
+    # permitimos oversized), avisar y caer al mas chico de los oversize
+    # como ultimo recurso, igualmente
+    if not candidates and oversize:
+        chosen = min(oversize, key=size_key)
+        log.warning(
+            "No hay modelos <= %.1fB. Usando '%s' (%.1fB) como ultimo recurso. "
+            "Configura MEETNINJA_MAX_MODEL_B mas alto o instala un modelo mas chico.",
+            MAX_MODEL_B, chosen, _parse_model_size_b(chosen) or 0,
+        )
+        warning = (
+            f"Solo hay modelos grandes instalados. Usando '{chosen}' por defecto "
+            f"puede ser muy lento en CPU. Considera instalar uno mas chico "
+            f"(ej `ollama pull llama3.2:3b` o `qwen2.5:1.5b`)."
+        )
+        candidates = [chosen]
 
     for m in candidates:
         out = await _ollama_generate_with_model(prompt, m)
         # string vacio cuenta como fallo
         if out and out.strip():
-            return out, m
+            return out, m, warning
         log.info("Modelo '%s' devolvio respuesta vacia o fallo, probando el siguiente", m)
-    return None, None
+    return None, None, warning
 
 
 def _parse_llm_json(raw: str) -> Optional[dict]:
@@ -425,15 +520,21 @@ async def summarize(transcript: str, mode: str) -> dict:
         raise ValueError("Transcripcion vacia")
 
     prompt = PROMPTS[mode].format(transcript=transcript[:12000])  # limite de contexto
-    raw, model_used = await _ollama_generate(prompt)
+    raw, model_used, warning = await _ollama_generate(prompt)
     parsed = _parse_llm_json(raw) if raw else None
     if parsed:
         parsed["_metodo"] = "ollama"
         parsed["_modelo"] = model_used or OLLAMA_MODEL
+        parsed["_modelo_b"] = _parse_model_size_b(model_used or "")
+        if warning:
+            parsed["_warning"] = warning
         return parsed
     # fallback
     log.info("Usando resumen extractivo (ollama no disponible o JSON invalido)")
-    return _extractive_summarize(transcript, mode)
+    result = _extractive_summarize(transcript, mode)
+    if warning:
+        result["_warning"] = warning
+    return result
 
 
 async def ollama_available() -> bool:

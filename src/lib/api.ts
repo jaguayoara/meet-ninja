@@ -34,7 +34,7 @@ export type TranscriptionResult = {
 export type HealthResponse = {
   ok: boolean;
   whisper: { default_model: string; available_models: string[] };
-  ollama: { available: boolean; url: string; model: string };
+  ollama: { available: boolean; url: string; model: string; max_model_b: number; allow_oversize: boolean };
   ffmpeg: string | null;
   python: string;
 };

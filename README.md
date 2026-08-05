@@ -128,14 +128,38 @@ npm run package:linux
 
 ## Ollama (opcional, recomendado)
 
-Para obtener los mejores resúmenes, instala [Ollama](https://ollama.com) y descarga un modelo:
+Para obtener los mejores resúmenes, instala [Ollama](https://ollama.com) y descarga un modelo **chico** apropiado para tu PC:
+
+| Tu PC | Modelo recomendado | Por que |
+|---|---|---|
+| Oficina sin GPU, 8 GB RAM | `ollama pull qwen2.5:1.5b` | ~1 GB, responde en 2-5 s |
+| Oficina sin GPU, 16 GB RAM | `ollama pull llama3.2:3b` | ~2 GB, balance ideal |
+| Con GPU NVIDIA (>=8 GB VRAM) | `ollama pull llama3.1:8b` | Mucho mejor, ~3 s por respuesta |
+| Workstation con GPU potente | `ollama pull qwen2.5:7b` | Maxima calidad |
+
+Meet Ninja detecta Ollama automaticamente y lo usa. **Si Ollama no esta disponible, la app usa resumen extractivo (sin LLM) y sigue funcionando** — no se rompe nada.
+
+### Cap automatico de tamaño (protege PCs debiles)
+
+Por default, Meet Ninja **ignora modelos de mas de 4B** para no congelar la PC en oficinas sin GPU. Veras un warning amarillo en la pestaña de cada modo si tienes modelos grandes instalados pero no se usan.
+
+Si queres cambiar el cap o forzar el uso de modelos grandes:
 
 ```bash
-# Instalar Ollama desde https://ollama.com/download
-ollama pull llama3.1:8b
+# Cambiar el cap a 8B (recomendado solo si tenes buena CPU/RAM)
+set MEETNINJA_MAX_MODEL_B=8
+
+# Forzar el uso de modelos que excedan el cap (para usuarios avanzados con GPU)
+set MEETNINJA_ALLOW_OVERSIZE=1
 ```
 
-Meet Ninja detecta Ollama automaticamente y lo usa. Si Ollama no esta disponible, la app usa resumen extractivo (sin LLM) y sigue funcionando.
+Tambien podes elegir el modelo preferido por env var:
+
+```bash
+set MEETNINJA_OLLAMA_MODEL=qwen2.5:1.5b
+```
+
+**Por que el cap de 4B?** En CPU moderna sin GPU, modelos de 7B tardan 1-3 minutos por respuesta y modelos de 12B+ literalmente congelan la maquina. Modelos de 1-3B dan respuestas utiles en 2-10 segundos y funcionan bien para resumenes estructurados. Si tenes GPU, subí el cap.
 
 ## Tecnologias
 

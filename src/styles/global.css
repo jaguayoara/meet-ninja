@@ -473,6 +473,20 @@ textarea:focus {
   border-opacity: 0.3;
 }
 
+.alert-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-opacity: 0.3;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.alert-warn strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
 /* ===================================================================
    Search panel
    =================================================================== */
