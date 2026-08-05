@@ -24,9 +24,9 @@ import { useTranslation } from '../i18n/useTranslation';
 
 type Source = 'mic' | 'system' | 'both';
 
-const VIZ_BAR_COUNT = 24;
-const VIZ_CSS_WIDTH = 220;
-const VIZ_CSS_HEIGHT = 44;
+const VIZ_BAR_COUNT = 28;
+const VIZ_CSS_WIDTH = 240;
+const VIZ_CSS_HEIGHT = 52;
 
 export function Recorder() {
   const { t } = useTranslation();
@@ -98,6 +98,9 @@ export function Recorder() {
   /**
    * Engancha un AnalyserNode al stream y dibuja barras de nivel en el
    * canvas. Usa su propio AudioContext (no interfiere con el del mix).
+   *
+   * Estilo VU meter: attack rapido (sube al toque) y decay suave
+   * (baja con inercia), asi se ve vivo incluso con senales bajas.
    */
   function startVisualizer(stream: MediaStream) {
     const canvas = canvasRef.current;
@@ -109,13 +112,18 @@ export function Recorder() {
     vizAudioCtxRef.current = audioCtx;
     const sourceNode = audioCtx.createMediaStreamSource(stream);
     const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 64;
-    analyser.smoothingTimeConstant = 0.7;
+    // fftSize 128 -> 64 bins, ~375 Hz cada uno a 48kHz. Buena resolucion
+    // para capturar las fundamentales de la voz (80-300 Hz en los
+    // primeros bins) y armonicqs hasta ~5-8 kHz.
+    analyser.fftSize = 128;
+    analyser.smoothingTimeConstant = 0.5;
     sourceNode.connect(analyser);
     // NOTA: NO conectamos el analyser al destination - no queremos
     // que el audio se escuche por los parlantes, solo analizarlo.
 
-    const buf = new Uint8Array(analyser.frequencyBinCount); // 32 bins
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    const levels = new Float32Array(VIZ_BAR_COUNT);
+    let frame = 0;
 
     const dpr = window.devicePixelRatio || 1;
     const w = VIZ_CSS_WIDTH * dpr;
@@ -133,32 +141,64 @@ export function Recorder() {
     const colorTop = getComputedStyle(document.documentElement)
       .getPropertyValue('--primary-hover')
       .trim() || '#a78bfa';
+    const colorDim = getComputedStyle(document.documentElement)
+      .getPropertyValue('--border-strong')
+      .trim() || '#d6d3d1';
 
     const draw = () => {
       analyser.getByteFrequencyData(buf);
+      frame++;
+
+      // Actualizar levels con attack rapido + decay suave (VU meter).
+      // La sensibilidad 180 (en vez de 255) hace que la voz humana
+      // se vea mas fuerte en pantalla.
+      for (let i = 0; i < VIZ_BAR_COUNT; i++) {
+        // Skew hacia frecuencias bajas (donde esta la voz).
+        const t = i / (VIZ_BAR_COUNT - 1);
+        const idx = Math.min(
+          buf.length - 1,
+          Math.floor(Math.pow(t, 0.6) * (buf.length * 0.55))
+        );
+        const target = Math.min(1, buf[idx] / 180);
+        const cur = levels[i];
+        if (target > cur) {
+          // Attack: subir rapido, con un toque de easing para que no sea
+          // 100% instantaneo (se ve mas natural).
+          levels[i] = cur + (target - cur) * 0.55;
+        } else {
+          // Decay: bajar suave.
+          levels[i] = cur * 0.88 + target * 0.12;
+        }
+      }
 
       ctx2d.clearRect(0, 0, cw, ch);
 
       const slot = cw / VIZ_BAR_COUNT;
-      const barW = slot * 0.6;
-      const gap = slot * 0.4;
+      const barW = slot * 0.55;
+      const gap = slot * 0.45;
 
       for (let i = 0; i < VIZ_BAR_COUNT; i++) {
-        // Muestrear bins de la mitad baja (donde esta la voz) con leve skew.
-        const t = i / (VIZ_BAR_COUNT - 1);
-        const idx = Math.min(
-          buf.length - 1,
-          Math.floor(Math.pow(t, 0.85) * (buf.length * 0.6))
-        );
-        const v = buf[idx] / 255;
+        let v = levels[i];
+        // Idle: si no hay audio, hacemos un latido sutil para que se note
+        // que esta vivo. Senoide con desfase por barra.
+        if (v < 0.04) {
+          const idle = 0.025 + 0.025 * Math.sin((frame + i * 7) * 0.12);
+          v = Math.max(v, idle);
+        }
         const barH = Math.max(2, v * (ch - 4));
         const x = i * slot + gap / 2;
         const y = ch - barH;
 
-        const grad = ctx2d.createLinearGradient(0, ch, 0, 0);
-        grad.addColorStop(0, colorBase);
-        grad.addColorStop(1, colorTop);
-        ctx2d.fillStyle = grad;
+        // Color: dim si la barra esta en su minimo idle, sino gradiente primary.
+        const isActive = v > 0.06;
+        if (isActive) {
+          const grad = ctx2d.createLinearGradient(0, ch, 0, 0);
+          grad.addColorStop(0, colorBase);
+          grad.addColorStop(1, colorTop);
+          ctx2d.fillStyle = grad;
+        } else {
+          ctx2d.fillStyle = colorDim;
+        }
 
         const r = Math.min(barW / 2, 3);
         ctx2d.beginPath();
