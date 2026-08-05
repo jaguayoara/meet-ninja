@@ -6,6 +6,9 @@
  *   - 'system' : solo audio del sistema (desktopCapturer + chromeMediaSource)
  *   - 'both'   : microfono + audio del sistema mezclados via Web Audio API
  *
+ * Mientras graba, muestra un visualizador de nivel en vivo (AnalyserNode
+ * + canvas + requestAnimationFrame) para que se note que esta captando audio.
+ *
  * La grabacion se guarda como Blob (webm/opus) y se manda al backend.
  * Si el usuario quiere, puede cargar un archivo en vez de grabar.
  *
@@ -20,6 +23,10 @@ import { formatTime } from '../lib/format';
 import { useTranslation } from '../i18n/useTranslation';
 
 type Source = 'mic' | 'system' | 'both';
+
+const VIZ_BAR_COUNT = 24;
+const VIZ_CSS_WIDTH = 220;
+const VIZ_CSS_HEIGHT = 44;
 
 export function Recorder() {
   const { t } = useTranslation();
@@ -37,6 +44,11 @@ export function Recorder() {
   // AudioContext + nodos para mezclar (solo en modo 'both')
   const audioCtxRef = useRef<AudioContext | null>(null);
   const tickRef = useRef<number | null>(null);
+
+  // Visualizador: AudioContext + AnalyserNode + raf + canvas
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const vizAudioCtxRef = useRef<AudioContext | null>(null);
+  const vizRafRef = useRef<number | null>(null);
 
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +85,7 @@ export function Recorder() {
       });
       audioCtxRef.current = null;
     }
+    stopVisualizer();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
         mediaRecorderRef.current.stop();
@@ -83,18 +96,111 @@ export function Recorder() {
   }
 
   /**
+   * Engancha un AnalyserNode al stream y dibuja barras de nivel en el
+   * canvas. Usa su propio AudioContext (no interfiere con el del mix).
+   */
+  function startVisualizer(stream: MediaStream) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx2d = canvas.getContext('2d');
+    if (!ctx2d) return;
+
+    const audioCtx = new AudioContext();
+    vizAudioCtxRef.current = audioCtx;
+    const sourceNode = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    analyser.smoothingTimeConstant = 0.7;
+    sourceNode.connect(analyser);
+    // NOTA: NO conectamos el analyser al destination - no queremos
+    // que el audio se escuche por los parlantes, solo analizarlo.
+
+    const buf = new Uint8Array(analyser.frequencyBinCount); // 32 bins
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = VIZ_CSS_WIDTH * dpr;
+    const h = VIZ_CSS_HEIGHT * dpr;
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+    ctx2d.scale(dpr, dpr);
+    const cw = VIZ_CSS_WIDTH;
+    const ch = VIZ_CSS_HEIGHT;
+
+    // Colores leidos del CSS custom property del primary.
+    const colorBase = getComputedStyle(document.documentElement)
+      .getPropertyValue('--primary')
+      .trim() || '#7c3aed';
+    const colorTop = getComputedStyle(document.documentElement)
+      .getPropertyValue('--primary-hover')
+      .trim() || '#a78bfa';
+
+    const draw = () => {
+      analyser.getByteFrequencyData(buf);
+
+      ctx2d.clearRect(0, 0, cw, ch);
+
+      const slot = cw / VIZ_BAR_COUNT;
+      const barW = slot * 0.6;
+      const gap = slot * 0.4;
+
+      for (let i = 0; i < VIZ_BAR_COUNT; i++) {
+        // Muestrear bins de la mitad baja (donde esta la voz) con leve skew.
+        const t = i / (VIZ_BAR_COUNT - 1);
+        const idx = Math.min(
+          buf.length - 1,
+          Math.floor(Math.pow(t, 0.85) * (buf.length * 0.6))
+        );
+        const v = buf[idx] / 255;
+        const barH = Math.max(2, v * (ch - 4));
+        const x = i * slot + gap / 2;
+        const y = ch - barH;
+
+        const grad = ctx2d.createLinearGradient(0, ch, 0, 0);
+        grad.addColorStop(0, colorBase);
+        grad.addColorStop(1, colorTop);
+        ctx2d.fillStyle = grad;
+
+        const r = Math.min(barW / 2, 3);
+        ctx2d.beginPath();
+        ctx2d.moveTo(x + r, y);
+        ctx2d.arcTo(x + barW, y, x + barW, y + r, r);
+        ctx2d.arcTo(x + barW, ch, x + barW - r, ch, r);
+        ctx2d.arcTo(x, ch, x, ch - r, r);
+        ctx2d.arcTo(x, y, x + r, y, r);
+        ctx2d.closePath();
+        ctx2d.fill();
+      }
+
+      vizRafRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+  }
+
+  function stopVisualizer() {
+    if (vizRafRef.current != null) {
+      cancelAnimationFrame(vizRafRef.current);
+      vizRafRef.current = null;
+    }
+    if (vizAudioCtxRef.current) {
+      vizAudioCtxRef.current.close().catch(() => {
+        // ignore
+      });
+      vizAudioCtxRef.current = null;
+    }
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx2d = canvas.getContext('2d');
+      if (ctx2d) ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  /**
    * Pide al usuario elegir una fuente de sistema (screen o window).
    * Auto-elige si solo hay una. Devuelve sourceId o null si cancela.
    */
   async function pickSourceId(): Promise<string | null> {
     if (!window.meetninja?.getDesktopSources) {
-      const disponibles = window.meetninja ? Object.keys(window.meetninja).join(', ') : 'undefined';
-      throw new Error(
-        `[diag] getDesktopSources no esta en window.meetninja. ` +
-        `window.meetninja = ${disponibles || 'undefined'}. ` +
-        `Probable causa: la ventana se abrio antes de recompilar el preload. ` +
-        `Cerrala (X) y volve a abrir Meet Ninja.`
-      );
+      throw new Error(t('recorder.electronOnly'));
     }
     const sources = await window.meetninja.getDesktopSources();
     if (sources.length === 0) {
@@ -122,9 +228,6 @@ export function Recorder() {
     const sourceId = await pickSourceId();
     if (!sourceId) throw new Error(t('recorder.cancelled'));
 
-    // En Electron, getUserMedia con chromeMediaSource: 'desktop' +
-    // chromeMediaSourceId devuelve el stream de la fuente elegida.
-    // Pedimos audio + video obligatorio y descartamos el video.
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         mandatory: {
@@ -171,7 +274,6 @@ export function Recorder() {
       sys = await openSystemStream();
       systemStreamRef.current = sys;
     } catch (e) {
-      // Si falla el system audio, liberar el mic antes de propagar el error.
       mic.getTracks().forEach((t) => t.stop());
       micStreamRef.current = null;
       throw e;
@@ -192,6 +294,11 @@ export function Recorder() {
     try {
       const stream = await getStream(src);
       streamRef.current = stream;
+
+      // Visualizador en vivo: AnalyserNode + canvas.
+      // Lo arranco despues de tener el stream y antes del MediaRecorder
+      // para que la primera lectura tenga data util.
+      startVisualizer(stream);
 
       const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
@@ -297,9 +404,20 @@ export function Recorder() {
             </button>
           </>
         ) : (
-          <button className="btn btn-danger" onClick={stop} type="button">
-            <span className="rec-square" /> {t('recorder.stop')} ({formatTime(elapsed)})
-          </button>
+          <>
+            <button className="btn btn-danger" onClick={stop} type="button">
+              <span className="rec-square rec-square-pulse" /> {t('recorder.stop')} ({formatTime(elapsed)})
+            </button>
+            <div className="recorder-viz-wrap" aria-label={t('recorder.vizAria')}>
+              <span className="rec-pulse" aria-hidden="true" />
+              <canvas
+                ref={canvasRef}
+                className="recorder-viz"
+                width={VIZ_CSS_WIDTH * 2}
+                height={VIZ_CSS_HEIGHT * 2}
+              />
+            </div>
+          </>
         )}
         <span className="recorder-sep">o</span>
         <button className="btn btn-ghost" onClick={handleOpen} type="button">

@@ -85,6 +85,7 @@ const es: Dict = {
   'recorder.pickSource': 'Elegi la fuente de audio',
   'recorder.pickSourceHint': 'Elegi la ventana o pantalla que tiene el audio que queres capturar.',
   'recorder.cancel': 'Cancelar',
+  'recorder.vizAria': 'Nivel de audio en vivo',
 
   // file drop
   'drop.title': 'Arrastra un audio aqui',
@@ -209,6 +210,7 @@ const en: Dict = {
   'recorder.pickSource': 'Pick an audio source',
   'recorder.pickSourceHint': 'Pick the window or screen that has the audio you want to capture.',
   'recorder.cancel': 'Cancel',
+  'recorder.vizAria': 'Live audio level',
 
   'drop.title': 'Drag audio here',
   'drop.sub': 'or click to select',
@@ -323,6 +325,7 @@ const pt: Dict = {
   'recorder.pickSource': 'Escolha a fonte de audio',
   'recorder.pickSourceHint': 'Escolha a janela ou tela que tem o audio que voce quer capturar.',
   'recorder.cancel': 'Cancelar',
+  'recorder.vizAria': 'Nivel de audio ao vivo',
 
   'drop.title': 'Arraste um audio aqui',
   'drop.sub': 'ou clique para selecionar',
