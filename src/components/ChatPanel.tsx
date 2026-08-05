@@ -84,10 +84,10 @@ export function ChatPanel() {
           <div className="chat-empty">
             <p>{t('chat.examples')}</p>
             <ul>
-              <li>¿Quien se encarga de la seccion 2?</li>
-              <li>¿Cuando es la proxima reunion?</li>
-              <li>¿Que tareas tienen asignadas?</li>
-              <li>Resume los puntos principales.</li>
+              <li>{t('chat.example1')}</li>
+              <li>{t('chat.example2')}</li>
+              <li>{t('chat.example3')}</li>
+              <li>{t('chat.example4')}</li>
             </ul>
           </div>
         )}

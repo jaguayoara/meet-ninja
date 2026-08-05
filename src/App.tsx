@@ -261,7 +261,7 @@ function SessionView({ sessionId }: { sessionId: string }) {
           </div>
           <h3 className="card-title">{t('card.1.audio')}</h3>
           <Recorder />
-          <div className="or-sep">o arrastra un archivo</div>
+          <div className="or-sep">{t('app.orDragFile')}</div>
           <FileDrop />
           {audioBlob && (
             <div className="audio-summary">
@@ -404,7 +404,7 @@ function BackendStatus({
 }) {
   const { t } = useTranslation();
   if (!ready) {
-    return <span className="status status-error" title={error || ''}>Backend: error</span>;
+    return <span className="status status-error" title={error || ''}>{t('app.backendError')}</span>;
   }
   return (
     <div className="status-group">

@@ -8,8 +8,10 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore, useCurrentSession } from '../store/useAppStore';
 import { formatTime } from '../lib/format';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function TranscriptionView() {
+  const { t } = useTranslation();
   const session = useCurrentSession();
   const transcription = session?.transcription ?? null;
   const search = session?.search ?? { terms: '', parsedTerms: [], mode: 'any' as const, results: [], loading: false, error: null, activeMatchIdx: 0 };
@@ -33,8 +35,8 @@ export function TranscriptionView() {
   if (!transcription) {
     return (
       <div className="empty-state">
-        <p>Aun no hay transcripcion.</p>
-        <p className="hint">Graba o carga un audio, y presiona <strong>Transcribir</strong>.</p>
+        <p>{t('tx.emptyTitle')}</p>
+        <p className="hint">{t('tx.emptyHint')}</p>
       </div>
     );
   }

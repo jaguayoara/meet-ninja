@@ -87,6 +87,8 @@ const es: Dict = {
   'recorder.allScreens': 'Todas las pantallas (escritorio completo)',
   'recorder.cancel': 'Cancelar',
   'recorder.vizAria': 'Nivel de audio en vivo',
+  'recorder.sepOr': 'o',
+  'recorder.electronOnlyOpen': 'Abre la app desde Electron para cargar archivos del disco.',
 
   // file drop
   'drop.title': 'Arrastra un audio aqui',
@@ -122,6 +124,10 @@ const es: Dict = {
   'chat.you': 'Vos',
   'chat.llm': 'LLM',
   'chat.examples': 'Ejemplos de preguntas:',
+  'chat.example1': '¿Quien se encarga de la seccion 2?',
+  'chat.example2': '¿Cuando es la proxima reunion?',
+  'chat.example3': '¿Que tareas tienen asignadas?',
+  'chat.example4': 'Resume los puntos principales.',
   'chat.empty': 'Aun no hay transcripcion. Transcribi un audio primero.',
 
   // translate
@@ -194,6 +200,9 @@ const es: Dict = {
 
   // audio
   'audio.saveAudio': 'Guardar audio',
+  'app.orDragFile': 'o arrastra un archivo',
+  'app.backendError': 'Backend: error',
+  'error.prefix': 'Error:',
   'audio.saveAudioTitle': 'Descargar el audio a tu computadora para guardarlo o compartirlo',
   'sessionMenu.export': 'Exportar',
   'sessionMenu.exportTitle': 'Guardar la sesion completa (audio + transcripcion + chat) en un archivo .meetninja.json',
@@ -249,6 +258,8 @@ const en: Dict = {
   'recorder.allScreens': 'All screens (whole desktop)',
   'recorder.cancel': 'Cancel',
   'recorder.vizAria': 'Live audio level',
+  'recorder.sepOr': 'or',
+  'recorder.electronOnlyOpen': 'Open the app from Electron to load files from disk.',
 
   'drop.title': 'Drag audio here',
   'drop.sub': 'or click to select',
@@ -280,6 +291,10 @@ const en: Dict = {
   'chat.you': 'You',
   'chat.llm': 'LLM',
   'chat.examples': 'Example questions:',
+  'chat.example1': 'Who handles section 2?',
+  'chat.example2': 'When is the next meeting?',
+  'chat.example3': 'What tasks have been assigned?',
+  'chat.example4': 'Summarize the main points.',
   'chat.empty': 'No transcript yet. Transcribe an audio first.',
 
   'translate.title': 'Translate transcript',
@@ -346,6 +361,9 @@ const en: Dict = {
 
   // audio
   'audio.saveAudio': 'Save audio',
+  'app.orDragFile': 'or drag a file',
+  'app.backendError': 'Backend: error',
+  'error.prefix': 'Error:',
   'audio.saveAudioTitle': 'Download the audio to your computer to save it or share it',
   'sessionMenu.export': 'Export',
   'sessionMenu.exportTitle': 'Save the full session (audio + transcript + chat) to a .meetninja.json file',
@@ -401,6 +419,8 @@ const pt: Dict = {
   'recorder.allScreens': 'Todas as telas (area de trabalho inteira)',
   'recorder.cancel': 'Cancelar',
   'recorder.vizAria': 'Nivel de audio ao vivo',
+  'recorder.sepOr': 'ou',
+  'recorder.electronOnlyOpen': 'Abra o app do Electron para carregar arquivos do disco.',
 
   'drop.title': 'Arraste um audio aqui',
   'drop.sub': 'ou clique para selecionar',
@@ -432,6 +452,10 @@ const pt: Dict = {
   'chat.you': 'Voce',
   'chat.llm': 'LLM',
   'chat.examples': 'Perguntas de exemplo:',
+  'chat.example1': 'Quem cuida da secao 2?',
+  'chat.example2': 'Quando e a proxima reuniao?',
+  'chat.example3': 'Quais tarefas foram atribuidas?',
+  'chat.example4': 'Resuma os pontos principais.',
   'chat.empty': 'Sem transcricao ainda. Transcreva um audio primeiro.',
 
   'translate.title': 'Traduzir transcricao',
@@ -498,6 +522,9 @@ const pt: Dict = {
 
   // audio
   'audio.saveAudio': 'Salvar audio',
+  'app.orDragFile': 'ou arraste um arquivo',
+  'app.backendError': 'Backend: erro',
+  'error.prefix': 'Erro:',
   'audio.saveAudioTitle': 'Baixar o audio para o seu computador para salvar ou compartilhar',
   'sessionMenu.export': 'Exportar',
   'sessionMenu.exportTitle': 'Salvar a sessao completa (audio + transcricao + chat) em um arquivo .meetninja.json',

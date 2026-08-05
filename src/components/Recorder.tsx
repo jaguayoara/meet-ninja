@@ -417,7 +417,7 @@ export function Recorder() {
 
   async function handleOpen() {
     if (!window.meetninja) {
-      setError('Abre la app desde Electron para cargar archivos del disco.');
+      setError(t('recorder.electronOnlyOpen'));
       return;
     }
     const path = await window.meetninja.openAudioDialog();
@@ -492,7 +492,7 @@ export function Recorder() {
             </div>
           </>
         )}
-        <span className="recorder-sep">o</span>
+        <span className="recorder-sep">{t('recorder.sepOr')}</span>
         <button className="btn btn-ghost" onClick={handleOpen} type="button">
           {t('recorder.loadFile')}
         </button>

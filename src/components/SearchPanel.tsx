@@ -124,7 +124,7 @@ export function SearchPanel() {
       )}
 
       {search.loading && <p className="hint">{t('search.searching')}</p>}
-      {search.error && <div className="alert alert-error">Error: {search.error}</div>}
+      {search.error && <div className="alert alert-error">{t('error.prefix')} {search.error}</div>}
 
       {transcription && search.parsedTerms.length > 0 && !search.loading && (
         <div className="search-summary">
