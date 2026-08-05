@@ -150,9 +150,9 @@ const es: Dict = {
   'tab.transcripcion': 'Transcripcion',
   'tab.buscar': 'Buscar',
   'tab.conversar': 'Conversar',
-  'tab.reunion': 'Modo Reunion',
-  'tab.estudio': 'Modo Estudio',
-  'tab.conversacion': 'Modo Conversacion',
+  'tab.reunion': 'Reunion',
+  'tab.estudio': 'Estudio',
+  'tab.conversacion': 'Conversacion',
 
   // transcription view
   'tx.idioma': 'Idioma detectado',
@@ -315,9 +315,9 @@ const en: Dict = {
   'tab.transcripcion': 'Transcript',
   'tab.buscar': 'Search',
   'tab.conversar': 'Chat',
-  'tab.reunion': 'Meeting mode',
-  'tab.estudio': 'Study mode',
-  'tab.conversacion': 'Conversation mode',
+  'tab.reunion': 'Meeting',
+  'tab.estudio': 'Study',
+  'tab.conversacion': 'Conversation',
 
   'tx.idioma': 'Detected language',
   'tx.modelo': 'Model',
@@ -477,9 +477,9 @@ const pt: Dict = {
   'tab.transcripcion': 'Transcricao',
   'tab.buscar': 'Buscar',
   'tab.conversar': 'Conversar',
-  'tab.reunion': 'Modo Reuniao',
-  'tab.estudio': 'Modo Estudo',
-  'tab.conversacion': 'Modo Conversa',
+  'tab.reunion': 'Reuniao',
+  'tab.estudio': 'Estudo',
+  'tab.conversacion': 'Conversa',
 
   'tx.idioma': 'Idioma detectado',
   'tx.modelo': 'Modelo',

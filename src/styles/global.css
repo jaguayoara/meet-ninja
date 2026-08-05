@@ -522,7 +522,7 @@ code {
 
 .app-body {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 320px 1fr;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -1124,24 +1124,24 @@ textarea:focus {
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 0 16px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  overflow-x: auto;
 }
 
 .tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -1432,8 +1432,9 @@ textarea:focus {
 }
 
 .chat-header h3 {
-  margin: 0 0 2px 0;
-  font-size: 13px;
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .chat-hint {
@@ -1458,19 +1459,25 @@ textarea:focus {
 }
 
 .chat-empty {
-  font-size: 12px;
+  font-size: 13px;
+  color: var(--text);
+  padding: 16px 8px;
+  line-height: 1.5;
+}
+
+.chat-empty p {
+  margin: 0 0 6px 0;
   color: var(--text-muted);
-  padding: 4px;
 }
 
 .chat-empty ul {
-  margin: 4px 0 0 0;
+  margin: 0;
   padding-left: 18px;
+  color: var(--text-muted);
 }
 
 .chat-empty li {
-  margin: 2px 0;
-  font-style: italic;
+  margin: 4px 0;
 }
 
 .chat-bubble {
@@ -1562,7 +1569,8 @@ textarea:focus {
   font-size: 13px;
   color: var(--text);
   resize: vertical;
-  min-height: 50px;
+  min-height: 40px;
+  max-height: 120px;
 }
 
 .chat-input:focus {
