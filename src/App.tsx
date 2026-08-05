@@ -109,7 +109,6 @@ export default function App() {
           </button>
         </div>
         <div className="header-status">
-          <LanguageSelector />
           <BackendStatus
             ready={backendReady}
             error={backendError}
@@ -148,6 +147,7 @@ function SessionView({ sessionId }: { sessionId: string }) {
   const audioBlob = useAppStore((s) => s.sessions[sessionId]?.audioBlob ?? null);
   const audioFileName = useAppStore((s) => s.sessions[sessionId]?.audioFileName ?? null);
   const audioDuration = useAppStore((s) => s.sessions[sessionId]?.audioDuration ?? 0);
+  const uiLang = useAppStore((s) => s.uiLang);
 
   // setters
   const setWhisperModel = useAppStore((s) => s.setWhisperModel);
@@ -170,7 +170,10 @@ function SessionView({ sessionId }: { sessionId: string }) {
       const r = await transcribeApi({
         file: audioBlob,
         model: whisperModel,
-        language: 'es',
+        // Pasamos el idioma activo como hint. Whisper es bueno detectando,
+        // pero darle el hint del idioma de la UI mejora la precision cuando
+        // el audio es multilingue o tiene acentos marcados.
+        language: uiLang,
         onProgress: (m) => setProgressMsg(m),
       });
       setTranscription(r);
@@ -365,6 +368,8 @@ function SessionView({ sessionId }: { sessionId: string }) {
               )}
             </button>
           )}
+          <div className="tabs-spacer" />
+          <LanguageSelector />
         </nav>
 
         <div className="tab-content">

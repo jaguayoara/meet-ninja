@@ -85,11 +85,11 @@ export async function transcribe(opts: {
   return r.json();
 }
 
-export async function summarize(text: string, mode: string): Promise<unknown> {
+export async function summarize(text: string, mode: string, language?: string): Promise<unknown> {
   const r = await fetch(`${await getBaseUrl()}/summarize`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, mode }),
+    body: JSON.stringify({ text, mode, language }),
   });
   if (!r.ok) {
     let msg = `HTTP ${r.status}`;
@@ -130,6 +130,7 @@ export async function chat(opts: {
   transcript: string;
   question: string;
   history?: ChatMessage[];
+  language?: string;
 }): Promise<{ ok: boolean; answer: string }> {
   const r = await fetch(`${await getBaseUrl()}/chat`, {
     method: 'POST',
@@ -138,6 +139,7 @@ export async function chat(opts: {
       transcript: opts.transcript,
       question: opts.question,
       history: opts.history || [],
+      language: opts.language,
     }),
   });
   if (!r.ok) {

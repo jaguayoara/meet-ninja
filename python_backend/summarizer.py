@@ -508,7 +508,7 @@ def _parse_llm_json(raw: str) -> Optional[dict]:
 # API publica
 # --------------------------------------------------------------------
 
-async def summarize(transcript: str, mode: str) -> dict:
+async def summarize(transcript: str, mode: str, language: str | None = None) -> dict:
     """
     Resume `transcript` en el modo pedido.
 
@@ -517,6 +517,9 @@ async def summarize(transcript: str, mode: str) -> dict:
        se usa esto. No requiere servicios externos.
     2. Ollama (opcional, si el usuario lo tiene instalado y la red esta ok).
     3. Resumen extractivo (sin LLM). Siempre funciona, menor calidad.
+
+    Si `language` esta definido, se agrega una instruccion al final del
+    prompt para que el resumen salga en ese idioma.
     """
     if mode not in PROMPTS:
         raise ValueError(f"Modo invalido: {mode}. Validos: {list(PROMPTS)}")
@@ -524,7 +527,26 @@ async def summarize(transcript: str, mode: str) -> dict:
     if not transcript:
         raise ValueError("Transcripcion vacia")
 
-    prompt = PROMPTS[mode].format(transcript=transcript[:12000])  # limite de contexto
+    base_prompt = PROMPTS[mode].format(transcript=transcript[:12000])  # limite de contexto
+    if language:
+        _LANG_NAMES = {
+            "es": "espanol",
+            "en": "English",
+            "pt": "portugues",
+            "fr": "frances",
+            "de": "aleman",
+            "it": "italiano",
+        }
+        lang_name = _LANG_NAMES.get(language.lower(), language)
+        prompt = (
+            base_prompt
+            + f"\n\nIMPORTANTE: Responde todo el resumen en {lang_name}. "
+            + "Los nombres propios y terminos tecnicos que aparezcan en la transcripcion se mantienen tal cual, "
+            + "pero todo el texto generado (titulos, descripciones, resumen corto) debe estar en "
+            + f"{lang_name}."
+        )
+    else:
+        prompt = base_prompt
     warning: str | None = None
 
     # 1) LLM local embebido (preferido, no requiere nada externo)

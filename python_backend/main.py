@@ -73,6 +73,7 @@ TMP_DIR.mkdir(parents=True, exist_ok=True)
 class SummarizeRequest(BaseModel):
     text: str
     mode: str  # 'reunion' | 'estudio' | 'conversacion'
+    language: Optional[str] = None  # 'es' | 'en' | 'pt' | ... - idioma de la UI
 
 
 class SearchRequest(BaseModel):
@@ -86,6 +87,7 @@ class ChatRequest(BaseModel):
     transcript: str
     question: str
     history: list[dict] = []  # [{role: "user"|"assistant", content: str}, ...]
+    language: Optional[str] = None  # 'es' | 'en' | 'pt' | ... - idioma de la UI
 
 
 class TranslateRequest(BaseModel):
@@ -222,7 +224,7 @@ async def transcribe(
 @app.post("/summarize")
 async def summarize_endpoint(req: SummarizeRequest):
     try:
-        result = await summarize(req.text, req.mode)
+        result = await summarize(req.text, req.mode, language=req.language)
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -260,13 +262,32 @@ async def chat_endpoint(req: ChatRequest):
         raise HTTPException(400, "Pregunta vacia")
 
     # System prompt con la transcripcion como contexto
+    # El idioma define en que idioma responde el LLM.
+    _LANG_NAMES = {
+        "es": "espanol",
+        "en": "English",
+        "pt": "portugues",
+        "fr": "frances",
+        "de": "aleman",
+        "it": "italiano",
+    }
+    lang = (req.language or "es").lower()
+    lang_name = _LANG_NAMES.get(lang, "espanol")
+    no_encontre_msg = {
+        "es": "No se encontro en la transcripcion",
+        "en": "Not found in the transcript",
+        "pt": "Nao foi encontrado na transcricao",
+        "fr": "Non trouve dans la transcription",
+        "de": "Nicht in der Transkription gefunden",
+        "it": "Non trovato nella trascrizione",
+    }.get(lang, "No se encontro en la transcripcion")
     system = (
         "INSTRUCCIONES ESTRICTAS:\n"
         "- Tu unica fuente de informacion es la transcripcion entre comillas triples.\n"
-        "- Si la respuesta NO esta en la transcripcion, responde EXACTAMENTE: 'No se encontro en la transcripcion'.\n"
+        f"- Si la respuesta NO esta en la transcripcion, responde EXACTAMENTE: '{no_encontre_msg}'.\n"
         "- NO uses conocimiento externo. NO inventes datos. NO hagas suposiciones.\n"
         "- Cita textualmente entre comillas cuando menciones algo de la transcripcion.\n"
-        "- Responde en espanol, maximo 3-4 oraciones.\n\n"
+        f"- Responde en {lang_name}, maximo 3-4 oraciones.\n\n"
         "Transcripcion:\n"
         f'"""\n{transcript[:16000]}\n"""'
     )

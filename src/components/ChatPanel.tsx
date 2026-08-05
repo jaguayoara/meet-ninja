@@ -14,7 +14,7 @@ import { chat } from '../lib/api';
 import { useTranslation } from '../i18n/useTranslation';
 
 export function ChatPanel() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const session = useCurrentSession();
   const transcription = session?.transcription ?? null;
   const messages = session?.chatMessages ?? [];
@@ -51,6 +51,7 @@ export function ChatPanel() {
         transcript: transcription!.text,
         question: q,
         history: messages,
+        language: lang,
       });
       addMessage({ role: 'assistant', content: r.answer });
     } catch (e) {

@@ -24,7 +24,7 @@ const DESCRIPTIONS: Record<Mode, string> = {
 };
 
 export function ModePanel({ mode }: { mode: Mode }) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const session = useCurrentSession();
   const transcription = session?.transcription ?? null;
   const summary = session?.summaries[mode] ?? { mode, data: null, loading: false, error: null };
@@ -34,7 +34,7 @@ export function ModePanel({ mode }: { mode: Mode }) {
     if (!transcription) return;
     setSummary(mode, { loading: true, error: null });
     try {
-      const data = (await summarize(transcription.text, mode)) as Record<string, unknown>;
+      const data = (await summarize(transcription.text, mode, lang)) as Record<string, unknown>;
       setSummary(mode, { loading: false, data, error: null });
     } catch (e) {
       setSummary(mode, { loading: false, error: e instanceof Error ? e.message : String(e) });
