@@ -37,8 +37,6 @@ const TABS: { id: TabId; key: string; icon: string }[] = [
 export default function App() {
   const { t } = useTranslation();
   const session = useCurrentSession();
-  const currentSessionId = useAppStore((s) => s.currentSessionId);
-  const createSession = useAppStore((s) => s.createSession);
 
   const [version, setVersion] = useState<string>('');
 
@@ -87,15 +85,8 @@ export default function App() {
     }
   }, []);
 
-  // Auto-crear primera sesion si no hay ninguna (y el backend esta listo)
-  const backendReady = useAppStore((s) => s.backendReady);
-  useEffect(() => {
-    if (backendReady && !currentSessionId) {
-      createSession();
-    }
-  }, [backendReady, currentSessionId, createSession]);
-
   const backendError = useAppStore((s) => s.backendError);
+  const backendReady = useAppStore((s) => s.backendReady);
   const ollamaAvailable = useAppStore((s) => s.ollamaAvailable);
   const ollamaModel = useAppStore((s) => s.ollamaModel);
   const ollamaMaxModelB = useAppStore((s) => s.ollamaMaxModelB);
