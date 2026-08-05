@@ -21,6 +21,7 @@
  */
 import { create } from 'zustand';
 import type { Segment, TranscriptionResult } from '../lib/api';
+import { saveAudio, loadAudio, deleteAudio } from '../lib/idb';
 
 export type Mode = 'reunion' | 'estudio' | 'conversacion';
 export type TabId = 'transcripcion' | 'reunion' | 'estudio' | 'conversacion';
@@ -184,6 +185,21 @@ function loadFromStorage(): { sessions: Session[]; currentId: string | null } {
   }
 }
 
+/**
+ * Despues de cargar el state desde localStorage, hidrata los Blobs de
+ * audio desde IndexedDB. Asincrona, se dispara una sola vez al montar.
+ */
+async function hydrateAudio(sessions: Session[]): Promise<Record<string, Blob>> {
+  const out: Record<string, Blob> = {};
+  await Promise.all(
+    sessions.map(async (s) => {
+      const stored = await loadAudio(s.id);
+      if (stored) out[s.id] = stored.blob;
+    }),
+  );
+  return out;
+}
+
 function saveToStorage(sessions: Session[], currentId: string | null) {
   if (typeof localStorage === 'undefined') return;
   try {
@@ -231,6 +247,8 @@ type AppState = {
   setCurrentSession: (id: string) => void;
   renameSession: (id: string, name: string) => void;
   resetCurrent: () => void;
+  importSession: (data: ImportableSession) => Promise<string>;
+  exportCurrent: () => Promise<ImportableSession | null>;
 
   // ---- actions: current session data (operan sobre la sesion activa) ----
   setAudio: (blob: Blob | null, name: string | null, duration?: number) => void;
@@ -263,6 +281,41 @@ type AppState = {
 
 // --------------------------- helpers ---------------------------
 
+/** Estructura de un archivo .meetninja.json exportado. */
+export type ImportableSession = {
+  __format: 'meetninja-session';
+  __version: 1;
+  meta: {
+    id: string;
+    name: string;
+    createdAt: number;
+    updatedAt: number;
+  };
+  session: Omit<Session, 'audioBlob'>;
+  audioBase64: string | null; // data:audio/webm;base64,... o null si no hay
+};
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
+function base64ToBlob(dataUrl: string): Blob {
+  const [meta, b64] = dataUrl.split(',');
+  const m = /data:([^;]+);base64/.exec(meta);
+  const mime = m ? m[1] : 'application/octet-stream';
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+// --------------------------- store ---------------------------
+
 function mutateCurrent(
   state: AppState,
   fn: (s: Session) => Partial<Session>,
@@ -285,7 +338,7 @@ const initialOrder = initial.sessions
   .sort((a, b) => b.updatedAt - a.updatedAt)
   .map((s) => s.id);
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   backendReady: false,
   backendError: null,
   whisperModel: 'small',
@@ -323,7 +376,8 @@ export const useAppStore = create<AppState>((set) => ({
     return s.id;
   },
 
-  deleteSession: (id) =>
+  deleteSession: (id) => {
+    deleteAudio(id);
     set((st) => {
       const { [id]: _, ...rest } = st.sessions;
       const order = st.sessionOrder.filter((x) => x !== id);
@@ -337,7 +391,8 @@ export const useAppStore = create<AppState>((set) => ({
         sessionOrder: order,
         currentSessionId: nextCurrent,
       };
-    }),
+    });
+  },
 
   setCurrentSession: (id) => {
     set((st) => {
@@ -357,7 +412,9 @@ export const useAppStore = create<AppState>((set) => ({
       return { sessions };
     }),
 
-  resetCurrent: () =>
+  resetCurrent: () => {
+    const id = get().currentSessionId;
+    if (id) deleteAudio(id);
     set((st) => {
       if (!st.currentSessionId) return st;
       const cur = st.sessions[st.currentSessionId];
@@ -371,10 +428,16 @@ export const useAppStore = create<AppState>((set) => ({
       const sessions = { ...st.sessions, [cur.id]: updated };
       saveToStorage(Object.values(sessions), cur.id);
       return { sessions };
-    }),
+    });
+  },
 
   // ---- current session setters ----
-  setAudio: (blob, name, duration = 0) =>
+  setAudio: (blob, name, duration = 0) => {
+    const id = get().currentSessionId;
+    if (id && blob) {
+      // Persistir el blob en IndexedDB (fire-and-forget, no bloquea el state).
+      saveAudio(id, blob).catch(() => undefined);
+    }
     set((st) => {
       const next = mutateCurrent(st, () => ({
         audioBlob: blob,
@@ -394,7 +457,8 @@ export const useAppStore = create<AppState>((set) => ({
       }));
       saveToStorage(Object.values({ ...st.sessions, ...next.sessions }), st.currentSessionId);
       return next;
-    }),
+    });
+  },
 
   setRecording: (v) => set((st) => mutateCurrent(st, () => ({ isRecording: v }))),
 
@@ -506,6 +570,72 @@ export const useAppStore = create<AppState>((set) => ({
       try { localStorage.setItem(LANG_KEY, lang); } catch { /* noop */ }
     }
   },
+
+  // ---- import / export ----
+  exportCurrent: async () => {
+    const st = get();
+    if (!st.currentSessionId) return null;
+    const cur = st.sessions[st.currentSessionId];
+    if (!cur) return null;
+    const audioBase64 = cur.audioBlob ? await blobToBase64(cur.audioBlob) : null;
+    const { audioBlob: _omit, ...rest } = cur;
+    return {
+      __format: 'meetninja-session',
+      __version: 1,
+      meta: {
+        id: cur.id,
+        name: cur.name,
+        createdAt: cur.createdAt,
+        updatedAt: cur.updatedAt,
+      },
+      session: rest,
+      audioBase64,
+    };
+  },
+
+  importSession: async (data) => {
+    if (data.__format !== 'meetninja-session') {
+      throw new Error('Formato de archivo no valido');
+    }
+    // Reconstruir el Blob a partir del data URL.
+    let audioBlob: Blob | null = null;
+    if (data.audioBase64) {
+      try {
+        audioBlob = base64ToBlob(data.audioBase64);
+      } catch {
+        audioBlob = null;
+      }
+    }
+    // Mezclar el session importado con defaults por si faltan campos.
+    const imported: Session = makeSession({
+      ...data.session,
+      id: data.meta.id,
+      name: data.meta.name,
+      createdAt: data.meta.createdAt,
+      updatedAt: data.meta.updatedAt,
+      audioBlob,
+    });
+    // Si el id ya existe, generar uno nuevo (no pisamos sesiones existentes).
+    const st = get();
+    if (st.sessions[imported.id]) {
+      imported.id = crypto.randomUUID();
+    }
+    if (audioBlob) {
+      await saveAudio(imported.id, audioBlob);
+    }
+    set((s) => {
+      const sessions = { ...s.sessions, [imported.id]: imported };
+      const order = [imported.id, ...s.sessionOrder];
+      saveToStorage(Object.values(sessions), imported.id);
+      return {
+        sessions,
+        sessionOrder: order,
+        currentSessionId: imported.id,
+        chatBubbleOpen: false,
+      };
+    });
+    return imported.id;
+  },
 }));
 
 // ---- selectors helpers ----
@@ -513,6 +643,28 @@ export function useCurrentSession(): Session | null {
   return useAppStore((s) =>
     s.currentSessionId ? s.sessions[s.currentSessionId] : null,
   );
+}
+
+/**
+ * Restaura los Blobs de audio desde IndexedDB para todas las sesiones
+ * que estan en el state. Llamar una sola vez al arrancar la app.
+ */
+export async function hydrateAudioFromIDB(): Promise<void> {
+  const st = useAppStore.getState();
+  const ids = Object.keys(st.sessions);
+  if (ids.length === 0) return;
+  const map = await hydrateAudio(Object.values(st.sessions));
+  const entries = Object.entries(map);
+  if (entries.length === 0) return;
+  useAppStore.setState((s) => {
+    const sessions = { ...s.sessions };
+    for (const [id, blob] of entries) {
+      if (sessions[id]) {
+        sessions[id] = { ...sessions[id], audioBlob: blob };
+      }
+    }
+    return { sessions };
+  });
 }
 
 // ---- helpers ----

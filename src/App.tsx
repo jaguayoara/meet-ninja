@@ -19,6 +19,7 @@ import { ChatBubble } from './components/ChatBubble';
 import {
   useAppStore,
   useCurrentSession,
+  hydrateAudioFromIDB,
   type TabId,
 } from './store/useAppStore';
 import { health as healthApi, transcribe as transcribeApi } from './lib/api';
@@ -44,6 +45,8 @@ export default function App() {
   // chequear backend al montar
   useEffect(() => {
     let cancelled = false;
+    // Hidratar audios desde IndexedDB al inicio (no bloquea el render).
+    hydrateAudioFromIDB().catch(() => undefined);
     async function check() {
       for (let i = 0; i < 30; i++) {
         try {
@@ -219,6 +222,17 @@ function SessionView({ sessionId }: { sessionId: string }) {
     downloadText(lines.join('\n'), `${safeName(session.name)}-transcripcion.md`, 'text/markdown;charset=utf-8');
   }
 
+  async function handleExportSession() {
+    const data = await useAppStore.getState().exportCurrent();
+    if (!data) return;
+    const json = JSON.stringify(data, null, 2);
+    downloadText(
+      json,
+      `${safeName(session.name)}.meetninja.json`,
+      'application/json;charset=utf-8',
+    );
+  }
+
   return (
     <div className="app-body">
       <aside className="sidebar">
@@ -235,6 +249,14 @@ function SessionView({ sessionId }: { sessionId: string }) {
             <h3 className="card-title session-context-name" title={session.name}>
               {session.name}
             </h3>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={handleExportSession}
+              title={t('sessionMenu.exportTitle')}
+            >
+              ⤓ {t('sessionMenu.export')}
+            </button>
           </div>
           <h3 className="card-title">{t('card.1.audio')}</h3>
           <Recorder />

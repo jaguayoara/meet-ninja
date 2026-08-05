@@ -173,10 +173,25 @@ export function SessionMenu() {
   const deleteSession = useAppStore((s) => s.deleteSession);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const renameSession = useAppStore((s) => s.renameSession);
+  const importSession = useAppStore((s) => s.importSession);
 
   const list = sessionOrder
     .map((id) => sessions[id])
     .filter((s): s is Session => !!s);
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite re-importar el mismo archivo
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const id = await importSession(data);
+      setCurrentSession(id);
+    } catch (err) {
+      alert(t('sessionMenu.importError') + ': ' + (err instanceof Error ? err.message : String(err)));
+    }
+  }
 
   return (
     <div className="session-menu">
@@ -185,13 +200,24 @@ export function SessionMenu() {
         <p className="session-menu-subtitle">{t('sessionMenu.subtitle')}</p>
       </div>
 
-      <button
-        type="button"
-        className="btn btn-primary btn-lg session-new-btn"
-        onClick={() => createSession()}
-      >
-        ＋ {t('sessionMenu.newSession')}
-      </button>
+      <div className="session-menu-actions">
+        <button
+          type="button"
+          className="btn btn-primary btn-lg session-new-btn"
+          onClick={() => createSession()}
+        >
+          ＋ {t('sessionMenu.newSession')}
+        </button>
+        <label className="btn btn-ghost btn-lg session-import-btn" title={t('sessionMenu.importTitle')}>
+          ⤒ {t('sessionMenu.import')}
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={handleImport}
+            style={{ display: 'none' }}
+          />
+        </label>
+      </div>
 
       {list.length === 0 ? (
         <div className="session-empty">

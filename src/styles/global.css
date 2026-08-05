@@ -230,6 +230,22 @@ code {
   padding: 10px 18px;
 }
 
+.session-menu-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.session-import-btn {
+  cursor: pointer;
+  font-size: 14.5px;
+  padding: 10px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .session-empty {
   padding: 40px;
   text-align: center;

@@ -191,6 +191,11 @@ const es: Dict = {
   'sessionMenu.empty': 'Sesion vacia',
   'sessionMenu.segments': 'segmentos',
   'sessionMenu.words': 'palabras',
+  'sessionMenu.export': 'Exportar',
+  'sessionMenu.exportTitle': 'Guardar la sesion completa (audio + transcripcion + chat) en un archivo .meetninja.json',
+  'sessionMenu.import': 'Importar',
+  'sessionMenu.importTitle': 'Cargar una sesion desde un archivo .meetninja.json',
+  'sessionMenu.importError': 'No se pudo importar la sesion',
 
   // chat bubble
   'bubble.title': 'Buscar y conversar',
@@ -334,6 +339,11 @@ const en: Dict = {
   'sessionMenu.empty': 'Empty session',
   'sessionMenu.segments': 'segments',
   'sessionMenu.words': 'words',
+  'sessionMenu.export': 'Export',
+  'sessionMenu.exportTitle': 'Save the full session (audio + transcript + chat) to a .meetninja.json file',
+  'sessionMenu.import': 'Import',
+  'sessionMenu.importTitle': 'Load a session from a .meetninja.json file',
+  'sessionMenu.importError': 'Could not import session',
 
   // chat bubble
   'bubble.title': 'Search and chat',
@@ -477,6 +487,11 @@ const pt: Dict = {
   'sessionMenu.empty': 'Sessao vazia',
   'sessionMenu.segments': 'segmentos',
   'sessionMenu.words': 'palavras',
+  'sessionMenu.export': 'Exportar',
+  'sessionMenu.exportTitle': 'Salvar a sessao completa (audio + transcricao + chat) em um arquivo .meetninja.json',
+  'sessionMenu.import': 'Importar',
+  'sessionMenu.importTitle': 'Carregar uma sessao de um arquivo .meetninja.json',
+  'sessionMenu.importError': 'Nao foi possivel importar a sessao',
 
   // chat bubble
   'bubble.title': 'Buscar e conversar',
