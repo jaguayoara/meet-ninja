@@ -988,6 +988,85 @@ textarea:focus {
 }
 
 /* ===================================================================
+   Language selector (header)
+   =================================================================== */
+
+.lang-selector {
+  padding: 5px 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.lang-selector:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+/* ===================================================================
+   Translate panel
+   =================================================================== */
+
+.translate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.translate-controls {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.translate-controls .field {
+  flex: 1;
+}
+
+.translate-controls .btn {
+  white-space: nowrap;
+}
+
+.translate-result {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.translate-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.translate-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.translate-output {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* ===================================================================
    Scrollbars (subtle)
    =================================================================== */
 

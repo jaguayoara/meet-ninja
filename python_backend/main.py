@@ -88,6 +88,12 @@ class ChatRequest(BaseModel):
     history: list[dict] = []  # [{role: "user"|"assistant", content: str}, ...]
 
 
+class TranslateRequest(BaseModel):
+    text: str
+    target_lang: str  # 'en', 'es', 'pt', 'fr', etc.
+    source_lang: Optional[str] = None  # autodetect si None
+
+
 # --------------------------------------------------------------------
 # Rutas
 # --------------------------------------------------------------------
@@ -96,7 +102,7 @@ def root():
     return {
         "name": "Meet Ninja API",
         "version": "0.1.0",
-        "endpoints": ["/health", "/models", "/transcribe", "/summarize", "/search", "/chat"],
+        "endpoints": ["/health", "/models", "/transcribe", "/summarize", "/search", "/chat", "/translate"],
     }
 
 
@@ -340,6 +346,100 @@ def _llm_chat_with_messages(llm, system: str, messages: list, max_tokens: int) -
                 "messages": msgs,
                 "max_tokens": max_tokens,
                 "temperature": 0.2,
+                "stream": False,
+            },
+        )
+    if r.status_code != 200:
+        raise RuntimeError(f"LLM HTTP {r.status_code}: {r.text[:200]}")
+    return r.json()["choices"][0]["message"]["content"]
+
+
+@app.post("/translate")
+async def translate_endpoint(req: TranslateRequest):
+    """
+    Traduce un texto al idioma destino usando el LLM local.
+    Preserva el formato, la puntuacion y el estilo. Pensado para traducciones
+    de transcripciones (mantener saltos de linea, nombres propios, etc).
+    """
+    text = (req.text or "").strip()
+    target = (req.target_lang or "").strip()
+    if not text:
+        raise HTTPException(400, "Texto vacio")
+    if not target:
+        raise HTTPException(400, "Falta target_lang (ej 'en', 'es', 'pt')")
+    if len(text) > 20000:
+        raise HTTPException(400, "Texto demasiado largo (max 20000 chars)")
+
+    LANG_NAMES = {
+        "en": "English",
+        "es": "Spanish (Espanol)",
+        "pt": "Portuguese (Portugues)",
+        "pt-BR": "Portuguese (Brasil)",
+        "pt-PT": "Portuguese (Portugal)",
+        "fr": "French (Francais)",
+        "de": "German (Deutsch)",
+        "it": "Italian (Italiano)",
+        "zh": "Chinese (Zhongwen)",
+        "ja": "Japanese (Nihongo)",
+        "ru": "Russian (Russkiy)",
+        "ko": "Korean (Hangugeo)",
+    }
+    target_name = LANG_NAMES.get(target, target)
+
+    src_clause = ""
+    if req.source_lang:
+        src_clause = f" from {req.source_lang}"
+    system = (
+        f"You are a professional translator. Translate the user's text{src_clause} "
+        f"into {target_name}. "
+        "Rules: "
+        "(1) preserve the original formatting, punctuation, line breaks and paragraph structure; "
+        "(2) keep proper nouns unchanged; "
+        "(3) keep technical terms unless there's a well-known equivalent in the target language; "
+        "(4) do NOT add explanations, notes, or commentary; "
+        "(5) do NOT add a title or preamble; "
+        "(6) return ONLY the translated text."
+    )
+
+    try:
+        from llm_local import get_llm
+        llm = get_llm()
+        llm._ensure_ready()
+        log.info("Translate: target=%s, len=%d", target, len(text))
+
+        import asyncio
+        # Para textos largos, mandamos en chunks si hace falta.
+        # 1.5B tiene ventana de 4096; con 15000 chars (~3000 tokens)
+        # podria no entrar todo. Pero el LLM lo maneja razonable.
+        # Si falla por contexto, se puede hacer chunked despues.
+        translated = await asyncio.to_thread(
+            _llm_translate, llm, system, text
+        )
+        return {
+            "ok": True,
+            "translated": translated.strip(),
+            "source_lang": req.source_lang,
+            "target_lang": target,
+        }
+    except Exception as e:
+        log.exception("Error en translate")
+        raise HTTPException(500, f"Error traduciendo: {e}")
+
+
+def _llm_translate(llm, system: str, text: str) -> str:
+    import httpx
+    port = llm._port
+    with httpx.Client(timeout=300.0) as client:
+        r = client.post(
+            f"http://127.0.0.1:{port}/v1/chat/completions",
+            json={
+                "model": "local",
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": text},
+                ],
+                "max_tokens": 4096,
+                "temperature": 0.1,
                 "stream": False,
             },
         )

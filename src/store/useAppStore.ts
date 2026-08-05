@@ -67,6 +67,9 @@ type AppState = {
   chatLoading: boolean;
   chatError: string | null;
 
+  // i18n
+  uiLang: 'es' | 'en' | 'pt';
+
   // setters
   setBackendStatus: (s: Partial<Pick<AppState, 'backendReady' | 'backendError' | 'whisperModel' | 'whisperAvailable' | 'ollamaAvailable' | 'ollamaModel' | 'ollamaMaxModelB' | 'ollamaAllowOversize'>>) => void;
   setAudio: (blob: Blob | null, name: string | null, duration?: number) => void;
@@ -87,6 +90,7 @@ type AppState = {
   clearChat: () => void;
   setChatLoading: (v: boolean) => void;
   setChatError: (e: string | null) => void;
+  setUiLang: (lang: 'es' | 'en' | 'pt') => void;
   reset: () => void;
 };
 
@@ -143,6 +147,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   search: initialSearch,
   ...initialChat,
+  uiLang: (typeof localStorage !== 'undefined' ? (localStorage.getItem('meetninja.lang') as 'es' | 'en' | 'pt' | null) : null) || 'es',
 
   setBackendStatus: (s) => set((st) => ({ ...st, ...s })),
   setAudio: (blob, name, duration = 0) =>
@@ -202,6 +207,12 @@ export const useAppStore = create<AppState>((set) => ({
     set(() => ({ chatMessages: [], chatError: null })),
   setChatLoading: (v) => set(() => ({ chatLoading: v })),
   setChatError: (e) => set(() => ({ chatError: e })),
+  setUiLang: (lang) => {
+    set(() => ({ uiLang: lang }));
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem('meetninja.lang', lang); } catch { /* noop */ }
+    }
+  },
   reset: () =>
     set(() => ({
       audioBlob: null,

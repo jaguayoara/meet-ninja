@@ -152,3 +152,30 @@ export async function chat(opts: {
   }
   return r.json();
 }
+
+export async function translate(opts: {
+  text: string;
+  targetLang: string;
+  sourceLang?: string;
+}): Promise<{ ok: boolean; translated: string; target_lang: string; source_lang?: string }> {
+  const r = await fetch(`${await getBaseUrl()}/translate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text: opts.text,
+      target_lang: opts.targetLang,
+      source_lang: opts.sourceLang,
+    }),
+  });
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try {
+      const j = await r.json();
+      msg = j.detail || msg;
+    } catch {
+      // ignore
+    }
+    throw new Error(msg);
+  }
+  return r.json();
+}

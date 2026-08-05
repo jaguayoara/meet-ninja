@@ -11,8 +11,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { chat } from '../lib/api';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function ChatPanel() {
+  const { t } = useTranslation();
   const transcription = useAppStore((s) => s.transcription);
   const messages = useAppStore((s) => s.chatMessages);
   const loading = useAppStore((s) => s.chatLoading);
@@ -33,7 +35,7 @@ export function ChatPanel() {
   }, [messages, loading]);
 
   if (!transcription) {
-    return <p className="hint">Transcribi un audio primero para poder chatear.</p>;
+    return <p className="hint">{t('chat.empty')}</p>;
   }
 
   async function send() {
@@ -72,16 +74,14 @@ export function ChatPanel() {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <h3>Conversar con la transcripción</h3>
-        <p className="chat-hint">
-          Preguntale lo que quieras. El LLM responde solo con lo que esta en la transcripción.
-        </p>
+        <h3>{t('chat.title')}</h3>
+        <p className="chat-hint">{t('chat.hint')}</p>
       </div>
 
       <div className="chat-messages" ref={scrollRef}>
         {messages.length === 0 && (
           <div className="chat-empty">
-            <p>Ejemplos de preguntas:</p>
+            <p>{t('chat.examples')}</p>
             <ul>
               <li>¿Quien se encarga de la seccion 2?</li>
               <li>¿Cuando es la proxima reunion?</li>
@@ -93,21 +93,21 @@ export function ChatPanel() {
         {messages.map((m, i) => (
           <div key={i} className={`chat-bubble chat-${m.role}`}>
             <div className="chat-bubble-label">
-              {m.role === 'user' ? 'Vos' : 'LLM'}
+              {m.role === 'user' ? t('chat.you') : t('chat.llm')}
             </div>
             <div className="chat-bubble-text">{m.content}</div>
           </div>
         ))}
         {loading && (
           <div className="chat-bubble chat-assistant chat-loading">
-            <div className="chat-bubble-label">LLM</div>
+            <div className="chat-bubble-label">{t('chat.llm')}</div>
             <div className="chat-bubble-text">
               <span className="chat-dots">
                 <span></span>
                 <span></span>
                 <span></span>
               </span>
-              Pensando...
+              {t('chat.thinking')}
             </div>
           </div>
         )}
@@ -116,7 +116,7 @@ export function ChatPanel() {
       <div className="chat-input-row">
         <textarea
           className="chat-input"
-          placeholder="Escribi tu pregunta y presiona Enter (Shift+Enter para nueva linea)"
+          placeholder={t('chat.placeholder')}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
@@ -130,7 +130,7 @@ export function ChatPanel() {
             disabled={!input.trim() || loading}
             type="button"
           >
-            Enviar
+            {t('chat.send')}
           </button>
           {messages.length > 0 && (
             <button
@@ -139,7 +139,7 @@ export function ChatPanel() {
               disabled={loading}
               type="button"
             >
-              Limpiar
+              {t('chat.clear')}
             </button>
           )}
         </div>

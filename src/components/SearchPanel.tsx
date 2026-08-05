@@ -12,8 +12,10 @@ import { useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { search as searchApi } from '../lib/api';
 import { downloadText } from '../lib/format';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function SearchPanel() {
+  const { t, tp } = useTranslation();
   const transcription = useAppStore((s) => s.transcription);
   const search = useAppStore((s) => s.search);
   const setSearchTerms = useAppStore((s) => s.setSearchTerms);
@@ -83,15 +85,13 @@ export function SearchPanel() {
   return (
     <div className="search-panel">
       <div className="search-header">
-        <h3>Buscar palabras clave</h3>
-        <p className="search-hint">
-          Escribi 1 o varios terminos. Separa con <code>,</code> o Enter. Acento-insensitive.
-        </p>
+        <h3>{t('search.title')}</h3>
+        <p className="search-hint">{t('search.hint')}</p>
       </div>
       <div className="search-controls">
         <textarea
           className="search-input"
-          placeholder={'Ejemplos:\ndelito, droga, hurto\nmenor de edad;amenaza;extorsion'}
+          placeholder={t('search.placeholder')}
           value={search.terms}
           onChange={(e) => setSearchTerms(e.target.value)}
           rows={3}
@@ -104,7 +104,7 @@ export function SearchPanel() {
               checked={search.mode === 'any'}
               onChange={() => setSearchMode('any')}
             />
-            <span>Cualquiera matchea</span>
+            <span>{t('search.any')}</span>
           </label>
           <label className="radio">
             <input
@@ -113,30 +113,27 @@ export function SearchPanel() {
               checked={search.mode === 'all'}
               onChange={() => setSearchMode('all')}
             />
-            <span>Todos en el mismo segmento</span>
+            <span>{t('search.all')}</span>
           </label>
         </div>
       </div>
 
       {!transcription && (
-        <p className="hint">Transcribi un audio primero para poder buscar.</p>
+        <p className="hint">{t('chat.empty')}</p>
       )}
 
-      {search.loading && <p className="hint">Buscando...</p>}
+      {search.loading && <p className="hint">{t('search.searching')}</p>}
       {search.error && <div className="alert alert-error">Error: {search.error}</div>}
 
       {transcription && search.parsedTerms.length > 0 && !search.loading && (
         <div className="search-summary">
           {search.results.length === 0 ? (
-            <p className="muted">Sin coincidencias.</p>
+            <p className="muted">{t('search.noMatches')}</p>
           ) : (
             <>
-              <p>
-                <strong>{search.results.length}</strong> coincidencia
-                {search.results.length === 1 ? '' : 's'}.
-              </p>
+              <p>{tp('search.matches', search.results.length)}</p>
               <button className="btn btn-ghost btn-sm" onClick={exportMatches} type="button">
-                Exportar resultados
+                {t('search.export')}
               </button>
             </>
           )}

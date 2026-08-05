@@ -8,8 +8,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { formatTime } from '../lib/format';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function Recorder() {
+  const { t } = useTranslation();
   const setAudio = useAppStore((s) => s.setAudio);
   const setRecording = useAppStore((s) => s.setRecording);
   const isRecording = useAppStore((s) => s.isRecording);
@@ -110,10 +112,10 @@ export function Recorder() {
         const blob = new Blob([bytes], { type: data.mime });
         setAudio(blob, data.name);
       } catch (e) {
-        setError('No se pudo leer el archivo. Proba arrastrandolo a la zona de drop.');
+        setError(t('recorder.readError'));
       }
     } else {
-      setError('Abre la app desde Electron para cargar archivos del disco.');
+      setError(t('recorder.readError'));
     }
   }
 
@@ -122,22 +124,21 @@ export function Recorder() {
       <div className="recorder-row">
         {!isRecording ? (
           <button className="btn btn-primary" onClick={start} type="button">
-            <span className="rec-dot" /> Grabar
+            <span className="rec-dot" /> {t('recorder.record')}
           </button>
         ) : (
           <button className="btn btn-danger" onClick={stop} type="button">
-            <span className="rec-square" /> Detener ({formatTime(elapsed)})
+            <span className="rec-square" /> {t('recorder.stop')} ({formatTime(elapsed)})
           </button>
         )}
         <span className="recorder-sep">o</span>
         <button className="btn btn-ghost" onClick={handleOpen} type="button">
-          Cargar archivo de audio
+          {t('recorder.loadFile')}
         </button>
       </div>
       {error && <div className="alert alert-error">{error}</div>}
       <p className="recorder-hint">
-        Soportado: <code>.wav</code>, <code>.mp3</code>, <code>.m4a</code>, <code>.ogg</code>, <code>.flac</code>, <code>.webm</code>.
-        Todo se procesa en este PC; nada sale a internet.
+        {t('recorder.hint')}
       </p>
     </div>
   );

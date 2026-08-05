@@ -13,18 +13,22 @@ import { TranscriptionView } from './components/TranscriptionView';
 import { ModePanel } from './components/ModePanel';
 import { SearchPanel } from './components/SearchPanel';
 import { ChatPanel } from './components/ChatPanel';
+import { TranslatePanel } from './components/TranslatePanel';
 import { useAppStore, type TabId } from './store/useAppStore';
 import { health as healthApi, transcribe as transcribeApi } from './lib/api';
 import { downloadText, humanSize } from './lib/format';
+import { useTranslation } from './i18n/useTranslation';
+import { LANGS, type Lang } from './i18n/translations';
 
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: 'transcripcion', label: 'Transcripcion', icon: '📝' },
-  { id: 'reunion', label: 'Modo Reunion', icon: '🗂️' },
-  { id: 'estudio', label: 'Modo Estudio', icon: '📚' },
-  { id: 'conversacion', label: 'Modo Conversacion', icon: '💬' },
+const TABS: { id: TabId; key: string; icon: string }[] = [
+  { id: 'transcripcion', key: 'tab.transcripcion', icon: '📝' },
+  { id: 'reunion',       key: 'tab.reunion',       icon: '🗂️' },
+  { id: 'estudio',       key: 'tab.estudio',       icon: '📚' },
+  { id: 'conversacion',  key: 'tab.conversacion',  icon: '💬' },
 ];
 
 export default function App() {
+  const { t } = useTranslation();
   const audioBlob = useAppStore((s) => s.audioBlob);
   const audioFileName = useAppStore((s) => s.audioFileName);
   const audioDuration = useAppStore((s) => s.audioDuration);
@@ -156,6 +160,7 @@ export default function App() {
           {version && <span className="brand-version">v{version}</span>}
         </div>
         <div className="header-status">
+          <LanguageSelector />
           <BackendStatus
             ready={backendReady}
             error={backendError}
@@ -164,7 +169,7 @@ export default function App() {
             ollamaMaxModelB={ollamaMaxModelB}
           />
           <button className="btn btn-ghost btn-sm" onClick={reset} type="button">
-            Nueva sesion
+            {t('header.newSession')}
           </button>
         </div>
       </header>
@@ -172,7 +177,7 @@ export default function App() {
       <div className="app-body">
         <aside className="sidebar">
           <section className="card">
-            <h3 className="card-title">1. Audio</h3>
+            <h3 className="card-title">{t('card.1.audio')}</h3>
             <Recorder />
             <div className="or-sep">o arrastra un archivo</div>
             <FileDrop />
@@ -190,10 +195,10 @@ export default function App() {
           </section>
 
           <section className="card">
-            <h3 className="card-title">2. Transcribir</h3>
+            <h3 className="card-title">{t('card.2.transcribe')}</h3>
             <div className="transcribe-controls">
               <label className="field">
-                <span>Modelo de Whisper</span>
+                <span>{t('transcribe.model')}</span>
                 <select value={whisperModel} onChange={(e) => setWhisperModel(e.target.value)}>
                   {whisperAvailable.map((m) => (
                     <option key={m} value={m}>
@@ -202,7 +207,7 @@ export default function App() {
                   ))}
                 </select>
                 <small className="muted">
-                  small (460 MB) es el balance recomendado. CPU only.
+                  {t('transcribe.modelHint')}
                 </small>
               </label>
               <button
@@ -211,7 +216,7 @@ export default function App() {
                 disabled={!audioBlob || isTranscribing || isRecording || !backendReady}
                 type="button"
               >
-                {isTranscribing ? `Transcribiendo... ${progressMsg}` : 'Transcribir audio'}
+                {isTranscribing ? t('transcribe.progress', { msg: progressMsg }) : t('transcribe.btn')}
               </button>
               {transcriptionError && <div className="alert alert-error">{transcriptionError}</div>}
             </div>
@@ -219,46 +224,53 @@ export default function App() {
 
           {transcription && (
             <section className="card">
-              <h3 className="card-title">3. Buscar palabras clave</h3>
+              <h3 className="card-title">{t('card.3.search')}</h3>
               <SearchPanel />
             </section>
           )}
 
           {transcription && (
             <section className="card">
-              <h3 className="card-title">4. Conversar</h3>
+              <h3 className="card-title">{t('card.4.chat')}</h3>
               <ChatPanel />
             </section>
           )}
 
           {transcription && (
             <section className="card">
-              <h3 className="card-title">5. Exportar</h3>
+              <h3 className="card-title">{t('card.5.translate')}</h3>
+              <TranslatePanel />
+            </section>
+          )}
+
+          {transcription && (
+            <section className="card">
+              <h3 className="card-title">{t('card.6.export')}</h3>
               <div className="export-buttons">
                 <button className="btn btn-ghost" onClick={exportTranscriptTxt} type="button">
-                  Transcripcion .txt
+                  {t('export.txt')}
                 </button>
                 <button className="btn btn-ghost" onClick={exportTranscriptMd} type="button">
-                  Transcripcion .md
+                  {t('export.md')}
                 </button>
               </div>
-              <p className="hint">Los resúmenes por modo también se pueden exportar como .md desde su pestaña.</p>
+              <p className="hint">{t('export.hint')}</p>
             </section>
           )}
         </aside>
 
         <main className="main-pane">
           <nav className="tabs">
-            {TABS.map((t) => (
+            {TABS.map((tab) => (
               <button
-                key={t.id}
-                className={`tab ${activeTab === t.id ? 'is-active' : ''}`}
-                onClick={() => setActiveTab(t.id)}
+                key={tab.id}
+                className={`tab ${activeTab === tab.id ? 'is-active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
                 type="button"
-                disabled={!transcription && t.id !== 'transcripcion'}
+                disabled={!transcription && tab.id !== 'transcripcion'}
               >
-                <span className="tab-icon">{t.icon}</span>
-                {t.label}
+                <span className="tab-icon">{tab.icon}</span>
+                {t(tab.key)}
               </button>
             ))}
           </nav>
@@ -288,12 +300,13 @@ function BackendStatus({
   ollamaModel: string;
   ollamaMaxModelB: number;
 }) {
+  const { t } = useTranslation();
   if (!ready) {
     return <span className="status status-error" title={error || ''}>Backend: error</span>;
   }
   return (
     <div className="status-group">
-      <span className="status status-ok">Backend OK</span>
+      <span className="status status-ok">{t('header.backendOk')}</span>
       <span
         className={`status ${ollamaAvailable ? 'status-ok' : 'status-warn'}`}
         title={
@@ -302,7 +315,9 @@ function BackendStatus({
             : 'Ollama no detectado. Se usara resumen extractivo.'
         }
       >
-        {ollamaAvailable ? `Ollama: ${ollamaModel} (≤${ollamaMaxModelB}B)` : 'Ollama: no'}
+        {ollamaAvailable
+          ? t('header.ollamaYes', { model: ollamaModel, cap: ollamaMaxModelB })
+          : t('header.ollamaNo')}
       </span>
     </div>
   );
@@ -312,4 +327,23 @@ function formatTs(s: number): string {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+function LanguageSelector() {
+  const { lang, setLang, t } = useTranslation();
+  return (
+    <select
+      className="lang-selector"
+      value={lang}
+      onChange={(e) => setLang(e.target.value as Lang)}
+      title={t('lang.label')}
+      aria-label={t('lang.label')}
+    >
+      {LANGS.map((l) => (
+        <option key={l.code} value={l.code}>
+          {l.native}
+        </option>
+      ))}
+    </select>
+  );
 }

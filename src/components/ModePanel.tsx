@@ -6,6 +6,7 @@
 import { useAppStore, type Mode } from '../store/useAppStore';
 import { summarize } from '../lib/api';
 import { downloadText } from '../lib/format';
+import { useTranslation } from '../i18n/useTranslation';
 
 const TITLES: Record<Mode, string> = {
   reunion: 'Modo Reunion — Minuta',
@@ -23,6 +24,7 @@ const DESCRIPTIONS: Record<Mode, string> = {
 };
 
 export function ModePanel({ mode }: { mode: Mode }) {
+  const { t } = useTranslation();
   const transcription = useAppStore((s) => s.transcription);
   const summary = useAppStore((s) => s.summaries[mode]);
   const setSummary = useAppStore((s) => s.setSummary);
@@ -74,7 +76,7 @@ export function ModePanel({ mode }: { mode: Mode }) {
             disabled={!transcription || summary.loading}
             type="button"
           >
-            {summary.loading ? 'Resumiendo...' : summary.data ? 'Regenerar' : 'Generar resumen'}
+            {summary.loading ? t('transcribe.progress', { msg: '...' }) : summary.data ? t('mode.regenerate') : t('mode.generate')}
           </button>
         </div>
       </div>
@@ -95,8 +97,8 @@ export function ModePanel({ mode }: { mode: Mode }) {
 
       {transcription && !summary.data && !summary.loading && !summary.error && (
         <div className="empty-state">
-          <p>Aun no se genero un resumen para este modo.</p>
-          <p className="hint">Presiona <strong>Generar resumen</strong>.</p>
+          <p>{t('mode.notGenerated')}</p>
+          <p className="hint">{t('mode.pressGenerate').replace('Generar resumen', t('mode.generate'))}</p>
         </div>
       )}
 
@@ -132,9 +134,10 @@ function renderMdValue(v: unknown): string {
 }
 
 function JsonView({ data }: { data: Record<string, unknown> }) {
+  const { t } = useTranslation();
   const entries = Object.entries(data).filter(([k]) => !k.startsWith('_'));
   if (entries.length === 0) {
-    return <p className="hint">El resumen no devolvio contenido.</p>;
+    return <p className="hint">{t('mode.empty')}</p>;
   }
   return (
     <div className="kv">
