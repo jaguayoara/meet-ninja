@@ -4,9 +4,8 @@
  * Estructura:
  *  - Header: estado del backend, version, controles globales, ir a menu.
  *  - Si hay sesion activa: SessionView (Recorder + FileDrop + controles +
- *    tabs Transcripcion / Reunion / Estudio / Conversacion).
+ *    tabs Transcripcion / Buscar / Conversar / Reunion / Estudio / Conversacion).
  *  - Si NO hay sesion activa: SessionMenu (lista de sesiones + nueva).
- *  - ChatBubble flotante: solo si hay transcripcion en la sesion activa.
  */
 import { useEffect, useState } from 'react';
 import { Recorder } from './components/Recorder';
@@ -15,7 +14,8 @@ import { TranscriptionView } from './components/TranscriptionView';
 import { ModePanel } from './components/ModePanel';
 import { TranslatePanel } from './components/TranslatePanel';
 import { SessionMenu } from './components/SessionMenu';
-import { ChatBubble } from './components/ChatBubble';
+import { SearchPanel } from './components/SearchPanel';
+import { ChatPanel } from './components/ChatPanel';
 import {
   useAppStore,
   useCurrentSession,
@@ -29,6 +29,8 @@ import { LANGS, type Lang } from './i18n/translations';
 
 const TABS: { id: TabId; key: string; icon: string }[] = [
   { id: 'transcripcion', key: 'tab.transcripcion', icon: '📝' },
+  { id: 'buscar',        key: 'tab.buscar',        icon: '🔍' },
+  { id: 'conversar',     key: 'tab.conversar',     icon: '💬' },
   { id: 'reunion',       key: 'tab.reunion',       icon: '🗂️' },
   { id: 'estudio',       key: 'tab.estudio',       icon: '📚' },
   { id: 'conversacion',  key: 'tab.conversacion',  icon: '🗨️' },
@@ -137,8 +139,6 @@ export default function App() {
       ) : (
         <SessionView key={session.id} sessionId={session.id} />
       )}
-
-      {session && <ChatBubble />}
     </div>
   );
 }
@@ -169,8 +169,6 @@ function SessionView({ sessionId }: { sessionId: string }) {
   const setProgressMsg = useAppStore((s) => s.setProgressMsg);
   const setTranscription = useAppStore((s) => s.setTranscription);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
-  const setChatBubbleOpen = useAppStore((s) => s.setChatBubbleOpen);
-  const chatBubbleOpen = useAppStore((s) => s.chatBubbleOpen);
 
   if (!session) return null;
 
@@ -367,26 +365,14 @@ function SessionView({ sessionId }: { sessionId: string }) {
               {t(tab.key)}
             </button>
           ))}
-          {transcription && (
-            <button
-              type="button"
-              className={'tab tab-bubble-tab' + (chatBubbleOpen ? ' is-active' : '')}
-              onClick={() => setChatBubbleOpen(!chatBubbleOpen)}
-              title={t('bubble.open')}
-            >
-              <span className="tab-icon">💬</span>
-              {t('bubble.shortTitle')}
-              {session.chatMessages.length > 0 && (
-                <span className="tab-badge">{session.chatMessages.length}</span>
-              )}
-            </button>
-          )}
           <div className="tabs-spacer" />
           <LanguageSelector />
         </nav>
 
         <div className="tab-content">
           {activeTab === 'transcripcion' && <TranscriptionView />}
+          {activeTab === 'buscar' && <SearchPanel />}
+          {activeTab === 'conversar' && <ChatPanel />}
           {activeTab === 'reunion' && <ModePanel mode="reunion" />}
           {activeTab === 'estudio' && <ModePanel mode="estudio" />}
           {activeTab === 'conversacion' && <ModePanel mode="conversacion" />}

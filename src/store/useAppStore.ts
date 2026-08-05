@@ -12,7 +12,6 @@
  *   - Backend health (whisper, ollama, llm local)
  *   - Idioma de UI
  *   - Lista de sesiones y sesion activa
- *   - Estado del ChatBubble flotante
  *
  * Persistencia:
  *   - Metadata + transcripcion + summaries + chat en localStorage
@@ -24,7 +23,7 @@ import type { Segment, TranscriptionResult } from '../lib/api';
 import { saveAudio, loadAudio, deleteAudio } from '../lib/idb';
 
 export type Mode = 'reunion' | 'estudio' | 'conversacion';
-export type TabId = 'transcripcion' | 'reunion' | 'estudio' | 'conversacion';
+export type TabId = 'transcripcion' | 'buscar' | 'conversar' | 'reunion' | 'estudio' | 'conversacion';
 export type Lang = 'es' | 'en' | 'pt';
 
 export type SummarizeResult = {
@@ -241,10 +240,6 @@ type AppState = {
   sessionOrder: string[];
   currentSessionId: string | null;
 
-  // ---- chat bubble UI ----
-  chatBubbleOpen: boolean;
-  chatBubbleTab: 'search' | 'chat';
-
   // ---- ui lang ----
   uiLang: Lang;
 
@@ -285,11 +280,6 @@ type AppState = {
   clearChat: () => void;
   setChatLoading: (v: boolean) => void;
   setChatError: (e: string | null) => void;
-
-  // ---- actions: chat bubble UI ----
-  setChatBubbleOpen: (v: boolean) => void;
-  toggleChatBubble: () => void;
-  setChatBubbleTab: (t: 'search' | 'chat') => void;
 
   // ---- actions: ui lang ----
   setUiLang: (lang: Lang) => void;
@@ -374,9 +364,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   // haya sesiones persistidas. El usuario elige explicitamente cual abrir.
   currentSessionId: null,
 
-  chatBubbleOpen: false,
-  chatBubbleTab: 'chat',
-
   uiLang: (typeof localStorage !== 'undefined' ? (localStorage.getItem(LANG_KEY) as Lang | null) : null) || 'es',
 
   theme: getInitialTheme(),
@@ -393,7 +380,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         sessions,
         sessionOrder: order,
         currentSessionId: s.id,
-        chatBubbleOpen: false,
       };
     });
     return s.id;
@@ -422,11 +408,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       // id vacio o null = volver al menu de sesiones
       if (!id) {
         saveToStorage(Object.values(st.sessions));
-        return { currentSessionId: null, chatBubbleOpen: false };
+        return { currentSessionId: null };
       }
       if (!st.sessions[id]) return st;
       saveToStorage(Object.values(st.sessions));
-      return { currentSessionId: id, chatBubbleOpen: false };
+      return { currentSessionId: id };
     });
   },
 
@@ -586,11 +572,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       return next;
     }),
 
-  // ---- chat bubble ----
-  setChatBubbleOpen: (v) => set(() => ({ chatBubbleOpen: v })),
-  toggleChatBubble: () => set((st) => ({ chatBubbleOpen: !st.chatBubbleOpen })),
-  setChatBubbleTab: (t) => set(() => ({ chatBubbleTab: t })),
-
   // ---- ui lang ----
   setUiLang: (lang) => {
     set(() => ({ uiLang: lang }));
@@ -675,7 +656,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         sessions,
         sessionOrder: order,
         currentSessionId: imported.id,
-        chatBubbleOpen: false,
       };
     });
     return imported.id;

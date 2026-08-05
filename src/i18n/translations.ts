@@ -148,6 +148,8 @@ const es: Dict = {
 
   // tabs
   'tab.transcripcion': 'Transcripcion',
+  'tab.buscar': 'Buscar',
+  'tab.conversar': 'Conversar',
   'tab.reunion': 'Modo Reunion',
   'tab.estudio': 'Modo Estudio',
   'tab.conversacion': 'Modo Conversacion',
@@ -214,14 +216,7 @@ const es: Dict = {
   'sessionMenu.importTitle': 'Cargar una sesion desde un archivo .meetninja.json',
   'sessionMenu.importError': 'No se pudo importar la sesion',
 
-  // chat bubble
-  'bubble.title': 'Buscar y conversar',
-  'bubble.shortTitle': 'Chat',
-  'bubble.open': 'Abrir chat',
-  'bubble.minimize': 'Minimizar',
-  'bubble.tabSearch': 'Buscar',
-  'bubble.tabChat': 'Conversar',
-
+  
   // header
   'header.goMenu': 'Volver al menu de sesiones',
   'header.sessions': 'Sesiones',
@@ -318,6 +313,8 @@ const en: Dict = {
   'export.hint': 'Per-mode summaries can also be exported as .md from their tab.',
 
   'tab.transcripcion': 'Transcript',
+  'tab.buscar': 'Search',
+  'tab.conversar': 'Chat',
   'tab.reunion': 'Meeting mode',
   'tab.estudio': 'Study mode',
   'tab.conversacion': 'Conversation mode',
@@ -381,14 +378,7 @@ const en: Dict = {
   'sessionMenu.importTitle': 'Load a session from a .meetninja.json file',
   'sessionMenu.importError': 'Could not import session',
 
-  // chat bubble
-  'bubble.title': 'Search and chat',
-  'bubble.shortTitle': 'Chat',
-  'bubble.open': 'Open chat',
-  'bubble.minimize': 'Minimize',
-  'bubble.tabSearch': 'Search',
-  'bubble.tabChat': 'Chat',
-
+  
   // header
   'header.goMenu': 'Back to sessions',
   'header.sessions': 'Sessions',
@@ -485,6 +475,8 @@ const pt: Dict = {
   'export.hint': 'Resumos por modo tambem podem ser exportados como .md na aba correspondente.',
 
   'tab.transcripcion': 'Transcricao',
+  'tab.buscar': 'Buscar',
+  'tab.conversar': 'Conversar',
   'tab.reunion': 'Modo Reuniao',
   'tab.estudio': 'Modo Estudo',
   'tab.conversacion': 'Modo Conversa',
@@ -548,14 +540,7 @@ const pt: Dict = {
   'sessionMenu.importTitle': 'Carregar uma sessao de um arquivo .meetninja.json',
   'sessionMenu.importError': 'Nao foi possivel importar a sessao',
 
-  // chat bubble
-  'bubble.title': 'Buscar e conversar',
-  'bubble.shortTitle': 'Chat',
-  'bubble.open': 'Abrir chat',
-  'bubble.minimize': 'Minimizar',
-  'bubble.tabSearch': 'Buscar',
-  'bubble.tabChat': 'Conversar',
-
+  
   // header
   'header.goMenu': 'Voltar ao menu de sessoes',
   'header.sessions': 'Sessoes',
