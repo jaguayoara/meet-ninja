@@ -23,6 +23,8 @@ const api = {
 
   getDesktopSources: () => ipcRenderer.invoke('desktop-capturer:get-sources'),
 
+  openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
+
   onMenuOpenAudio: (cb) => {
     const fn = () => cb();
     ipcRenderer.on('menu:open-audio', fn);

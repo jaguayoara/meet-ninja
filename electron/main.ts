@@ -232,6 +232,16 @@ function setupIpc(): void {
     shell.showItemInFolder(p);
   });
 
+  ipcMain.handle('shell:open-external', (_e, url: string) => {
+    // Validacion basica: solo http(s) y mailto por seguridad.
+    if (typeof url !== 'string') return;
+    if (!/^https?:\/\//i.test(url) && !/^mailto:/i.test(url)) {
+      console.warn('[main] openExternal rechazo url no permitida:', url);
+      return;
+    }
+    shell.openExternal(url);
+  });
+
   ipcMain.handle('desktop-capturer:get-sources', async () => {
     /**
      * Devuelve las fuentes disponibles para capturar audio del sistema

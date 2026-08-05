@@ -13,6 +13,7 @@ export type MeetNinjaApi = {
   showInFolder: (p: string) => Promise<unknown>;
 
   getDesktopSources: () => Promise<{ id: string; name: string }[]>;
+  openExternal: (url: string) => Promise<void>;
 
   onMenuOpenAudio: (cb: () => void) => () => void;
   onUpdateAvailable: (cb: (info: unknown) => void) => () => void;

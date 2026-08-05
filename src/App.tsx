@@ -16,8 +16,6 @@ import { ModePanel } from './components/ModePanel';
 import { TranslatePanel } from './components/TranslatePanel';
 import { SessionMenu } from './components/SessionMenu';
 import { ChatBubble } from './components/ChatBubble';
-import { LiveOverlay, type LiveLine } from './components/LiveOverlay';
-import { useLiveSession, type LiveSource } from './lib/live';
 import {
   useAppStore,
   useCurrentSession,
@@ -94,6 +92,16 @@ export default function App() {
   const ollamaMaxModelB = useAppStore((s) => s.ollamaMaxModelB);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
 
+  // Aplicar theme al <html> y mantenerlo sincronizado si cambia el store
+  // (por ejemplo, desde el ThemeToggle o desde DevTools).
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  }, [theme]);
+
   return (
     <div className="app">
       <header className="app-header">
@@ -111,6 +119,9 @@ export default function App() {
           </button>
         </div>
         <div className="header-status">
+          <LanguageSelector />
+          <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+          <GitHubButton />
           <BackendStatus
             ready={backendReady}
             error={backendError}
@@ -160,26 +171,6 @@ function SessionView({ sessionId }: { sessionId: string }) {
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const setChatBubbleOpen = useAppStore((s) => s.setChatBubbleOpen);
   const chatBubbleOpen = useAppStore((s) => s.chatBubbleOpen);
-
-  // ---- Live transcription + translation ----
-  const [transcriptLines, setTranscriptLines] = useState<LiveLine[]>([]);
-  const [translationLines, setTranslationLines] = useState<LiveLine[]>([]);
-  const [liveVisible, setLiveVisible] = useState(true);
-  const [liveSource, setLiveSource] = useState<LiveSource>('system');
-  const live = useLiveSession({
-    source: liveSource,
-    sourceLang: uiLang === 'en' ? 'en' : uiLang === 'pt' ? 'pt' : 'es',
-    targetLang: uiLang,
-    whisperModel: whisperModel,
-    onTranscript: (e) => {
-      if (!e.text) return; // evento vacio se usa como senal interna
-      setTranscriptLines((prev) => [...prev, { text: e.text, ts: Date.now(), kind: 'transcript' as const }].slice(-20));
-    },
-    onTranslation: (e) => {
-      setTranslationLines((prev) => [...prev, { text: e.text, ts: Date.now(), kind: 'translation' as const }].slice(-20));
-    },
-    onError: () => undefined,
-  });
 
   if (!session) return null;
 
@@ -339,82 +330,6 @@ function SessionView({ sessionId }: { sessionId: string }) {
           </div>
         </section>
 
-        <section className="card">
-          <h3 className="card-title">{t('live.title')}</h3>
-          <p className="hint" style={{ marginTop: 0, marginBottom: 8 }}>
-            {t('live.hint')}
-          </p>
-          {live.status !== 'active' && live.status !== 'connecting' && (
-            <div className="recorder-source" role="radiogroup" aria-label={t('live.source')}>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={liveSource === 'mic'}
-                className={'chip' + (liveSource === 'mic' ? ' chip-active' : '')}
-                onClick={() => setLiveSource('mic')}
-                title={t('live.sourceMicTitle')}
-              >
-                {t('live.sourceMic')}
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={liveSource === 'system'}
-                className={'chip' + (liveSource === 'system' ? ' chip-active' : '')}
-                onClick={() => setLiveSource('system')}
-                title={t('live.sourceSystemTitle')}
-              >
-                {t('live.sourceSystem')}
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={liveSource === 'both'}
-                className={'chip' + (liveSource === 'both' ? ' chip-active' : '')}
-                onClick={() => setLiveSource('both')}
-                title={t('live.sourceBothTitle')}
-              >
-                {t('live.sourceBoth')}
-              </button>
-            </div>
-          )}
-          {live.status === 'idle' || live.status === 'closed' || live.status === 'error' ? (
-            <button
-              type="button"
-              className="btn btn-primary btn-lg"
-              style={{ marginTop: 8, width: '100%' }}
-              onClick={() => { setTranscriptLines([]); setTranslationLines([]); live.start(); }}
-              disabled={!backendReady}
-            >
-              ● {t('live.start')}
-            </button>
-          ) : (
-            <div className="live-controls">
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => live.stop()}
-              >
-                ■ {t('live.stop')}
-              </button>
-              <span className="live-status-badge live-status-active">
-                {t('live.liveBadge')}
-              </span>
-            </div>
-          )}
-          {live.error && <div className="alert alert-error" style={{ marginTop: 8 }}>{live.error}</div>}
-          {(live.status === 'active') && (
-            <label className="live-toggle">
-              <input
-                type="checkbox"
-                checked={liveVisible}
-                onChange={(e) => setLiveVisible(e.target.checked)}
-              />
-              {t('live.showOverlay')}
-            </label>
-          )}
-        </section>
-
         {transcription && (
           <section className="card">
             <h3 className="card-title">{t('card.5.translate')}</h3>
@@ -477,12 +392,6 @@ function SessionView({ sessionId }: { sessionId: string }) {
           {activeTab === 'conversacion' && <ModePanel mode="conversacion" />}
         </div>
       </main>
-
-      <LiveOverlay
-        transcripts={transcriptLines}
-        translations={translationLines}
-        visible={liveVisible && (live.status === 'active' || live.status === 'connecting')}
-      />
     </div>
   );
 }
@@ -550,5 +459,47 @@ function LanguageSelector() {
         </option>
       ))}
     </select>
+  );
+}
+
+function ThemeToggle({ theme, onToggle }: { theme: 'light' | 'dark'; onToggle: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={onToggle}
+      title={t('header.toggleTheme')}
+      aria-label={t('header.toggleTheme')}
+    >
+      {theme === 'dark' ? '☀' : '☾'}
+    </button>
+  );
+}
+
+function GitHubButton() {
+  const { t } = useTranslation();
+  function open() {
+    const url = 'https://github.com/jaguayoara/meet-ninja';
+    if (window.meetninja?.openExternal) {
+      // En Electron: usar el browser del sistema.
+      window.meetninja.openExternal(url);
+    } else {
+      // Fallback para dev fuera de Electron.
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+  return (
+    <button
+      type="button"
+      className="github-btn"
+      onClick={open}
+      title={t('header.github')}
+      aria-label={t('header.github')}
+    >
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+        <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.13c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.25 3.34.96.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.19-1.49 3.15-1.18 3.15-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.84 1.18 3.1 0 4.42-2.69 5.4-5.25 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/>
+      </svg>
+    </button>
   );
 }

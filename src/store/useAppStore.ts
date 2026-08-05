@@ -71,6 +71,20 @@ export type Session = {
 const STORAGE_KEY = 'meetninja.sessions.v1';
 const LANG_KEY = 'meetninja.lang';
 const CURRENT_KEY = 'meetninja.currentSession.v1';
+const THEME_KEY = 'meetninja.theme';
+
+export type Theme = 'light' | 'dark';
+
+function getInitialTheme(): Theme {
+  if (typeof localStorage === 'undefined') return 'light';
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored === 'light' || stored === 'dark') return stored;
+  // Fallback: respetar el sistema operativo.
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'light';
+}
 
 const emptySummary = (mode: Mode): SummarizeResult => ({
   mode,
@@ -235,6 +249,9 @@ type AppState = {
   // ---- ui lang ----
   uiLang: Lang;
 
+  // ---- theme ----
+  theme: Theme;
+
   // ---- actions: backend ----
   setBackendStatus: (s: Partial<Pick<AppState,
     'backendReady' | 'backendError' | 'whisperModel' | 'whisperAvailable' |
@@ -277,6 +294,10 @@ type AppState = {
 
   // ---- actions: ui lang ----
   setUiLang: (lang: Lang) => void;
+
+  // ---- actions: theme ----
+  setTheme: (theme: Theme) => void;
+  toggleTheme: () => void;
 };
 
 // --------------------------- helpers ---------------------------
@@ -357,6 +378,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   chatBubbleTab: 'search',
 
   uiLang: (typeof localStorage !== 'undefined' ? (localStorage.getItem(LANG_KEY) as Lang | null) : null) || 'es',
+
+  theme: getInitialTheme(),
 
   setBackendStatus: (s) => set((st) => ({ ...st, ...s })),
 
@@ -574,6 +597,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (typeof localStorage !== 'undefined') {
       try { localStorage.setItem(LANG_KEY, lang); } catch { /* noop */ }
     }
+  },
+
+  // ---- theme ----
+  setTheme: (theme) => {
+    set(() => ({ theme }));
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem(THEME_KEY, theme); } catch { /* noop */ }
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  },
+  toggleTheme: () => {
+    const cur = get().theme;
+    const next: Theme = cur === 'dark' ? 'light' : 'dark';
+    get().setTheme(next);
   },
 
   // ---- import / export ----

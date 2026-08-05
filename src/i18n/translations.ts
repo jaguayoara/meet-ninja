@@ -225,21 +225,8 @@ const es: Dict = {
   // header
   'header.goMenu': 'Volver al menu de sesiones',
   'header.sessions': 'Sesiones',
-
-  // live
-  'live.title': 'En vivo',
-  'live.hint': 'Transcripcion + traduccion en tiempo real con subtitulos en pantalla. El audio se graba para procesarlo despues.',
-  'live.start': 'Iniciar en vivo',
-  'live.stop': 'Detener',
-  'live.liveBadge': 'EN VIVO',
-  'live.showOverlay': 'Mostrar subtitulos sobre la app',
-  'live.source': 'Fuente de audio en vivo',
-  'live.sourceMic': 'Microfono',
-  'live.sourceSystem': 'Audio del sistema',
-  'live.sourceBoth': 'Ambos',
-  'live.sourceMicTitle': 'Captura tu microfono (lo que decis vos)',
-  'live.sourceSystemTitle': 'Captura lo que suena en tu PC (la otra persona en la reunion)',
-  'live.sourceBothTitle': 'Mezcla microfono + audio del sistema',
+  'header.github': 'Codigo en GitHub',
+  'header.toggleTheme': 'Cambiar tema',
 };
 
 const en: Dict = {
@@ -405,21 +392,8 @@ const en: Dict = {
   // header
   'header.goMenu': 'Back to sessions',
   'header.sessions': 'Sessions',
-
-  // live
-  'live.title': 'Live',
-  'live.hint': 'Real-time transcription + translation with on-screen captions. Audio is recorded for later processing.',
-  'live.start': 'Start live',
-  'live.stop': 'Stop',
-  'live.liveBadge': 'LIVE',
-  'live.showOverlay': 'Show captions over the app',
-  'live.source': 'Live audio source',
-  'live.sourceMic': 'Microphone',
-  'live.sourceSystem': 'System audio',
-  'live.sourceBoth': 'Both',
-  'live.sourceMicTitle': 'Captures your microphone (what you say)',
-  'live.sourceSystemTitle': 'Captures what plays on your PC (the other person in the meeting)',
-  'live.sourceBothTitle': 'Mixes microphone + system audio',
+  'header.github': 'Code on GitHub',
+  'header.toggleTheme': 'Toggle theme',
 };
 
 const pt: Dict = {
@@ -585,21 +559,8 @@ const pt: Dict = {
   // header
   'header.goMenu': 'Voltar ao menu de sessoes',
   'header.sessions': 'Sessoes',
-
-  // live
-  'live.title': 'Ao vivo',
-  'live.hint': 'Transcricao + traducao em tempo real com legendas na tela. O audio e gravado para processar depois.',
-  'live.start': 'Iniciar ao vivo',
-  'live.stop': 'Parar',
-  'live.liveBadge': 'AO VIVO',
-  'live.showOverlay': 'Mostrar legendas sobre o app',
-  'live.source': 'Fonte de audio ao vivo',
-  'live.sourceMic': 'Microfone',
-  'live.sourceSystem': 'Audio do sistema',
-  'live.sourceBoth': 'Ambos',
-  'live.sourceMicTitle': 'Captura o microfone (o que voce fala)',
-  'live.sourceSystemTitle': 'Captura o som do seu PC (a outra pessoa na reuniao)',
-  'live.sourceBothTitle': 'Mistura microfone + audio do sistema',
+  'header.github': 'Codigo no GitHub',
+  'header.toggleTheme': 'Alternar tema',
 };
 
 const dicts: Record<Lang, Dict> = { es, en, pt };
