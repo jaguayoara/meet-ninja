@@ -83,7 +83,8 @@ const es: Dict = {
   'recorder.noSources': 'No se encontraron ventanas ni pantallas para capturar.',
   'recorder.cancelled': 'Captura cancelada.',
   'recorder.pickSource': 'Elegi la fuente de audio',
-  'recorder.pickSourceHint': 'Elegi la ventana o pantalla que tiene el audio que queres capturar.',
+  'recorder.pickSourceHint': 'Elegi la ventana o pantalla que tiene el audio que queres capturar. "Todas las pantallas" captura todo el escritorio.',
+  'recorder.allScreens': 'Todas las pantallas (escritorio completo)',
   'recorder.cancel': 'Cancelar',
   'recorder.vizAria': 'Nivel de audio en vivo',
 
@@ -208,7 +209,8 @@ const en: Dict = {
   'recorder.noSources': 'No windows or screens were found to capture.',
   'recorder.cancelled': 'Capture cancelled.',
   'recorder.pickSource': 'Pick an audio source',
-  'recorder.pickSourceHint': 'Pick the window or screen that has the audio you want to capture.',
+  'recorder.pickSourceHint': 'Pick the window or screen that has the audio you want to capture. "All screens" captures the whole desktop.',
+  'recorder.allScreens': 'All screens (whole desktop)',
   'recorder.cancel': 'Cancel',
   'recorder.vizAria': 'Live audio level',
 
@@ -323,7 +325,8 @@ const pt: Dict = {
   'recorder.noSources': 'Nenhuma janela ou tela foi encontrada para capturar.',
   'recorder.cancelled': 'Captura cancelada.',
   'recorder.pickSource': 'Escolha a fonte de audio',
-  'recorder.pickSourceHint': 'Escolha a janela ou tela que tem o audio que voce quer capturar.',
+  'recorder.pickSourceHint': 'Escolha a janela ou tela que tem o audio que voce quer capturar. "Todas as telas" captura a area de trabalho inteira.',
+  'recorder.allScreens': 'Todas as telas (area de trabalho inteira)',
   'recorder.cancel': 'Cancelar',
   'recorder.vizAria': 'Nivel de audio ao vivo',
 

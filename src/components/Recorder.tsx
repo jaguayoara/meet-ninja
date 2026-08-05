@@ -54,7 +54,9 @@ export function Recorder() {
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Source>('mic');
   // Picker de fuente: aparece cuando hay varias opciones de screen/window.
-  const [picker, setPicker] = useState<{ id: string; name: string }[] | null>(null);
+  // El primer item puede ser sintetico ("Todas las pantallas").
+  type PickerOpt = { id: string; name: string; synthetic?: boolean };
+  const [picker, setPicker] = useState<PickerOpt[] | null>(null);
   const pickerResolveRef = useRef<((id: string | null) => void) | null>(null);
 
   useEffect(() => {
@@ -236,6 +238,8 @@ export function Recorder() {
 
   /**
    * Pide al usuario elegir una fuente de sistema (screen o window).
+   * Si hay screens, agrega una opcion sintetica "Todas las pantallas"
+   * al inicio que captura el escritorio completo.
    * Auto-elige si solo hay una. Devuelve sourceId o null si cancela.
    */
   async function pickSourceId(): Promise<string | null> {
@@ -246,10 +250,27 @@ export function Recorder() {
     if (sources.length === 0) {
       throw new Error(t('recorder.noSources'));
     }
-    if (sources.length === 1) return sources[0].id;
+
+    // Armar lista de opciones para el picker. La primera (si hay screens)
+    // es una opcion sintetica "Todas" que captura el escritorio completo.
+    type PickerOpt = { id: string; name: string; synthetic?: boolean };
+    const firstScreen = sources.find((s) => s.id.startsWith('screen:'));
+    const options: PickerOpt[] = [];
+    if (firstScreen) {
+      options.push({
+        id: firstScreen.id,
+        name: t('recorder.allScreens'),
+        synthetic: true,
+      });
+    }
+    for (const s of sources) {
+      options.push({ id: s.id, name: s.name });
+    }
+
+    if (options.length === 1) return options[0].id;
     return new Promise<string | null>((resolve) => {
       pickerResolveRef.current = resolve;
-      setPicker(sources);
+      setPicker(options);
     });
   }
 
@@ -361,13 +382,24 @@ export function Recorder() {
         setRecording(false);
       };
 
-      rec.start(1000);
+      // 1) Cambiar el flag para que React monte el canvas en el DOM.
       setRecording(true);
       setElapsed(0);
       const t0 = Date.now();
       tickRef.current = window.setInterval(() => {
         setElapsed((Date.now() - t0) / 1000);
       }, 200);
+
+      // 2) Arrancar el visualizador en el siguiente frame, asi React
+      //    ya commiteo el <canvas> y canvasRef.current apunta al DOM.
+      requestAnimationFrame(() => {
+        if (streamRef.current === stream) {
+          startVisualizer(stream);
+        }
+      });
+
+      // 3) Recién ahora arrancamos a grabar.
+      rec.start(1000);
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('recorder.micError');
       setError(msg);
@@ -478,15 +510,25 @@ export function Recorder() {
             <h3 className="picker-title">{t('recorder.pickSource')}</h3>
             <p className="picker-hint">{t('recorder.pickSourceHint')}</p>
             <ul className="picker-list">
-              {picker.map((s) => (
+              {picker.map((s, i) => (
                 <li key={s.id}>
                   <button
                     type="button"
-                    className="picker-item"
+                    className={'picker-item' + (s.synthetic ? ' picker-item-synthetic' : '')}
                     onClick={() => resolvePicker(s.id)}
                   >
+                    {s.synthetic && <span className="picker-icon" aria-hidden="true">▣</span>}
+                    {!s.synthetic && s.id.startsWith('screen:') && (
+                      <span className="picker-icon" aria-hidden="true">▢</span>
+                    )}
+                    {!s.synthetic && s.id.startsWith('window:') && (
+                      <span className="picker-icon" aria-hidden="true">▭</span>
+                    )}
                     {s.name}
                   </button>
+                  {i === 0 && picker.length > 1 && picker[1] && !picker[1].synthetic && (
+                    <div className="picker-divider" aria-hidden="true" />
+                  )}
                 </li>
               ))}
             </ul>

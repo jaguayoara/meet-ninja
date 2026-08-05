@@ -409,6 +409,9 @@ code {
   cursor: pointer;
   font-family: inherit;
   transition: background 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .picker-item:last-child {
@@ -417,6 +420,33 @@ code {
 
 .picker-item:hover {
   background: var(--bg-elevated);
+}
+
+.picker-item-synthetic {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.picker-item-synthetic:hover {
+  background: var(--primary-soft);
+  filter: brightness(0.95);
+}
+
+.picker-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.picker-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
 }
 
 .picker-actions {
