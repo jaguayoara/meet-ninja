@@ -360,17 +360,34 @@ def _generate_questions_from_keywords(keywords: list[str]) -> list[str]:
 # LLM via ollama
 # --------------------------------------------------------------------
 
+# Cache de Ollama: si Ollama esta caido o no responde, NO queremos
+# pagar el costo del timeout en cada request. Cacheamos el resultado
+# de los chequeos por N segundos.
+import time as _time
+_OLLAMA_CACHE_TTL_SEC = float(os.environ.get("MEETNINJA_OLLAMA_CACHE_TTL", "30"))
+_ollama_cache: dict = {"avail": None, "avail_at": 0.0, "models": None, "models_at": 0.0}
+
+
 async def _ollama_list_models() -> list[str]:
-    """Devuelve la lista de modelos instalados en ollama, vacia si falla."""
+    """Devuelve la lista de modelos instalados en ollama, vacia si falla.
+    Cachea el resultado por _OLLAMA_CACHE_TTL_SEC para no pagar timeout
+    en cada request cuando Ollama esta caido."""
+    now = _time.monotonic()
+    if _ollama_cache["models"] is not None and (now - _ollama_cache["models_at"]) < _OLLAMA_CACHE_TTL_SEC:
+        return _ollama_cache["models"]
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             r = await client.get(f"{OLLAMA_URL}/api/tags")
             if r.status_code != 200:
-                return []
-            data = r.json()
-            return [m.get("name", "") for m in data.get("models", []) if m.get("name")]
+                models: list[str] = []
+            else:
+                data = r.json()
+                models = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
     except Exception:
-        return []
+        models = []
+    _ollama_cache["models"] = models
+    _ollama_cache["models_at"] = now
+    return models
 
 
 async def _ollama_generate_with_model(prompt: str, model: str) -> Optional[str]:
@@ -595,9 +612,17 @@ async def summarize(transcript: str, mode: str, language: str | None = None) -> 
 
 
 async def ollama_available() -> bool:
+    """Chequea si Ollama responde. Cachea el resultado por _OLLAMA_CACHE_TTL_SEC
+    para que un Ollama caido no haga pagar el timeout en cada request."""
+    now = _time.monotonic()
+    if _ollama_cache["avail"] is not None and (now - _ollama_cache["avail_at"]) < _OLLAMA_CACHE_TTL_SEC:
+        return _ollama_cache["avail"]
     try:
         async with httpx.AsyncClient(timeout=3) as client:
             r = await client.get(f"{OLLAMA_URL}/api/tags")
-            return r.status_code == 200
+            ok = r.status_code == 200
     except Exception:
-        return False
+        ok = False
+    _ollama_cache["avail"] = ok
+    _ollama_cache["avail_at"] = now
+    return ok
