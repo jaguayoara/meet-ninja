@@ -8,6 +8,8 @@ dist/
 dist-electron/
 release/
 out/
+.electron-builder-cache/
+.electron-builder-cache.bak/
 
 # Python
 python_backend/__pycache__/
