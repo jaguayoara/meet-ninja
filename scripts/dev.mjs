@@ -68,7 +68,9 @@ async function main() {
   const pyProc = run('python', pyCmd, pyArgs, { env: { MEETNINJA_PORT: '8765' } });
 
   try {
-    await waitForUrl('http://127.0.0.1:8765/health', 20000);
+    // 60s en vez de 20s: el /health puede tardar si tiene que esperar a
+    // que arranque el LLM local (llama-server) la primera vez.
+    await waitForUrl('http://127.0.0.1:8765/health', 60000);
     console.log('[dev] Backend Python OK');
   } catch (e) {
     console.error('[dev] Backend Python no arranco:', e.message);
