@@ -362,13 +362,30 @@ function setupAutoUpdate(): void {
   autoUpdater.on('error', (err) => {
     console.error('[auto-updater]', err);
   });
-  // silenciar check
-  autoUpdater.checkForUpdates().catch(() => undefined);
+  // Chequear updates (no fallar si no hay red o no hay releases)
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.warn('[auto-updater] No se pudo chequear updates:', err?.message || err);
+  });
 }
 
 // --------------------------------------------------------------------
 // Lifecycle
 // --------------------------------------------------------------------
+
+// Single instance lock: si el user abre el .exe dos veces, la segunda
+// instancia se enfoca en la primera en vez de abrir dos ventanas.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(async () => {
   startPython();
   const ok = await waitForPython();
