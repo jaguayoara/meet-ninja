@@ -10,6 +10,9 @@ release/
 out/
 .electron-builder-cache/
 .electron-builder-cache.bak/
+# Cache local de electron-builder (scripts/package_win.cjs) — evita el bug de
+# symlinks de winCodeSign en Windows sin admin. Ver scripts/eb-shim/7za.cmd
+.eb-cache/
 
 # Python
 python_backend/__pycache__/

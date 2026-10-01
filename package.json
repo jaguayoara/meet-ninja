@@ -1,6 +1,6 @@
 {
   "name": "meet-ninja",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Meet Ninja - Transcripcion y resumen de reuniones con IA, 100% local",
   "main": "dist-electron/main.js",
   "author": "Jorge Aguayo <jaguayoara@users.noreply.github.com>",
@@ -77,6 +77,10 @@
       "target": [
         {
           "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
           "arch": ["x64"]
         }
       ],

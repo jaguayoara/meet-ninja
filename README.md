@@ -31,23 +31,26 @@ en tu PC — no hay servicios en la nube, no se envía nada a internet.
 
 ## 📥 Instalación
 
-### Opción A: Portable (recomendada para probar)
-
-1. Bajá el `.zip` de la sección [Releases](https://github.com/jaguayoara/meet-ninja/releases)
-2. Descomprimí en cualquier carpeta
-3. Doble click en `Meet Ninja.exe`
-
-> ⚠️ Si Windows muestra SmartScreen ("origen desconocido"), clickeá
-> **Más información** → **Ejecutar de todas formas**. Es estándar para
-> apps open-source sin firma de código.
-
-### Opción B: Instalador NSIS
+### Opción A: Instalador (recomendada)
 
 1. Bajá el `Meet Ninja Setup x.x.x.exe` de [Releases](https://github.com/jaguayoara/meet-ninja/releases)
 2. Ejecutá y seguí el wizard
 
-> Solo disponible en releases construidos con Developer Mode activado o
-> desde una consola con permisos de admin.
+El instalador es **por usuario**: no pide permisos de administrador, te deja
+elegir dónde instalarlo y crea acceso directo en el Escritorio y en el
+Menú Inicio.
+
+### Opción B: Portable (sin instalar nada)
+
+1. Bajá el `Meet Ninja x.x.x.exe` de [Releases](https://github.com/jaguayoara/meet-ninja/releases)
+2. Ponelo en cualquier carpeta y hacé doble click
+
+Ideal para probar desde un USB o en un PC prestado, o si preferís no instalar
+nada en tu equipo.
+
+> ⚠️ Si Windows muestra SmartScreen ("origen desconocido"), clickeá
+> **Más información** → **Ejecutar de todas formas**. Es estándar para
+> apps open-source sin firma de código.
 
 ---
 
