@@ -35,32 +35,41 @@ let pyProcess: import('node:child_process').ChildProcess | null = null;
 // --------------------------------------------------------------------
 // Python backend
 // --------------------------------------------------------------------
+
+/**
+ * Resuelve el interprete de Python del backend.
+ *
+ * En produccion priorizamos el Python PORTABLE embebido
+ * (python-build-standalone) que va en resources/python_backend/.py/.
+ * Es un CPython autocontenido y RELOCATABLE: funciona desde cualquier
+ * carpeta y en cualquier PC, sin necesitar Python instalado ni permisos
+ * de admin. Por eso la app es "zero prerequisites".
+ *
+ * Solo si ese interprete no existe caemos al Python del sistema
+ * (util para desarrollo o builds raros), y si tampoco, dejamos que
+ * Electron lance 'python' del PATH para dar un error claro.
+ */
 function getPythonPath(): string {
-  // En produccion el backend esta en process.resourcesPath/python_backend
-  // En dev esta en ../python_backend
+  const isWin = process.platform === 'win32';
+  const exeName = isWin ? 'python.exe' : 'python';
+  const sep = isWin ? 'Scripts' : 'bin';
+
   if (app.isPackaged) {
-    const resources = process.resourcesPath;
-    const isWin = process.platform === 'win32';
-    const venvPython = join(
-      resources,
-      'python_backend',
-      '.venv',
-      isWin ? 'Scripts' : 'bin',
-      isWin ? 'python.exe' : 'python',
-    );
+    const backend = join(process.resourcesPath, 'python_backend');
+    // 1) Python portable embebido (preferido)
+    const portable = join(backend, '.py', exeName);
+    if (existsSync(portable)) return portable;
+    // 2) venv clasico (solo en builds antiguos)
+    const venvPython = join(backend, '.venv', sep, exeName);
     if (existsSync(venvPython)) return venvPython;
-    return join(resources, 'python_backend', 'main.py');
+    // 3) fallback: main.py con Python del sistema
+    return join(backend, 'main.py');
   }
+
   // dev: ../python_backend/.venv/Scripts/python.exe o ../python_backend/main.py
   const devBackend = resolve(__dirname, '..', 'python_backend');
-  const isWin = process.platform === 'win32';
-  const venvPython = join(
-    devBackend,
-    '.venv',
-    isWin ? 'Scripts' : 'bin',
-    isWin ? 'python.exe' : 'python',
-  );
-  if (existsSync(venvPython)) return venvPython;
+  const devVenv = join(devBackend, '.venv', sep, exeName);
+  if (existsSync(devVenv)) return devVenv;
   return join(devBackend, 'main.py');
 }
 
@@ -388,7 +397,7 @@ if (!gotLock) {
 
 app.whenReady().then(async () => {
   startPython();
-  const ok = await waitForPython();
+  const ok = await waitForPython(90000);
   if (!ok) {
     console.error('[main] El backend Python no arranco a tiempo');
     if (mainWindow == null) {
@@ -397,8 +406,18 @@ app.whenReady().then(async () => {
       await dialog.showMessageBox({
         type: 'error',
         title: 'Meet Ninja - Error',
-        message: 'No se pudo iniciar el backend Python',
-        detail: 'Verifica que Python 3.10+ este instalado y que ejecutaste scripts\\setup-python.ps1 al menos una vez.',
+        message: 'No se pudo iniciar el motor de IA',
+        detail: [
+          'Meet Ninja trae su propio Python portable, asi que no deberias',
+          'necesitar instalar nada.',
+          '',
+          'Cosas para probar:',
+          '1. Verifica que descomprimiste TODO el archivo .zip (no solo el .exe).',
+          '2. Revisa que tu antivirus no haya bloqueado o puesto en cuarentena',
+          '   los archivos de la carpeta "python_backend\\.py".',
+          '3. Si instalaste en "Program Files", prueba en una carpeta como',
+          '   C:\\Meet Ninja (sin permisos de administrador).',
+        ].join('\n'),
       });
       app.quit();
       return;

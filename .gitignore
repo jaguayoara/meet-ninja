@@ -16,6 +16,9 @@ python_backend/__pycache__/
 python_backend/*/__pycache__/
 python_backend/.venv/
 python_backend/venv/
+# CPython portable embebido (433 MB, se baja solo con scripts/build-portable-python.ps1)
+python_backend/.py/
+.pybuild/
 # modelos whisper descargados
 python_backend/models/
 # binarios de llama.cpp descargados (se bajan solos en el primer uso)

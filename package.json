@@ -55,13 +55,21 @@
         "from": "python_backend",
         "to": "python_backend",
         "filter": [
-          "**/*.py",
-          "**/*.txt",
-          "**/*.ps1",
-          "**/*.md",
-          "bin/llama-server.exe",
-          "bin/llama-server.pdb",
-          "models/**"
+          "*.py",
+          "*.txt",
+          "*.md",
+          "bin/**",
+          "models/**",
+          "!.venv/**",
+          "!.py/**",
+          "!__pycache__/**"
+        ]
+      },
+      {
+        "from": "python_backend/.py/python",
+        "to": "python_backend/.py",
+        "filter": [
+          "**"
         ]
       }
     ],

@@ -60,10 +60,19 @@ en tu PC — no hay servicios en la nube, no se envía nada a internet.
 | CPU | Cualquier x64 con SSE4 | 4+ cores |
 | GPU | No requerida (CPU-only) | — |
 | Disco | 2.5 GB para la app + modelos | SSD |
-| Red | Solo para descargar modelos la primera vez (opcional) | — |
+| **Python** | **No se necesita** | — |
+
+**No tenés que instalar nada.** Meet Ninja embebe su propio CPython portable
+(una build relocatable de [python-build-standalone](https://github.com/astral-sh/python-build-standalone)),
+el modelo de Whisper y el LLM local. Escribí el audio y listo.
+
+> ¿Por qué Python portable y no un venv? Porque los venvs **no son portables**:
+> su `pyvenv.cfg` apunta a la ruta absoluta del Python base de la máquina que
+> los creó, así que fallan en cualquier otro equipo. Un CPython relocatable
+> funciona desde cualquier carpeta y en cualquier PC, sin permisos de admin.
 
 Testeado en PCs de oficina sin GPU dedicada con 8 GB RAM. La primera
-ejecución tarda ~30-60s mientras levanta el LLM local; después responde
+ejecución tarda ~60-90s mientras levanta el LLM local; después responde
 en 2-10s por consulta.
 
 ---
